@@ -71,7 +71,9 @@
 #include "jsscript.h"
 #include "jstracer.h"
 
-#include "prmjtime.h"
+//#include "prmjtime.h"
+
+#include "jsdso.h"
 
 #ifdef JSDEBUGGER
 #include "jsdebug.h"
@@ -4854,6 +4856,12 @@ main(int argc, char **argv, char **envp)
     envobj = JS_DefineObject(cx, glob, "environment", &env_class, NULL, 0);
     if (!envobj || !JS_SetPrivate(cx, envobj, envp))
         return 1;
+
+#if defined(JS_HAS_DSO_OBJECT)
+    JSObject* dso = js_InitDSOClass(cx, glob);
+    if (!dso) 
+        return 1;
+#endif
 
 #ifdef NARCISSUS
     {

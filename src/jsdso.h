@@ -33,7 +33,7 @@
 #ifndef jsdso_h___
 #define jsdso_h___
 
-#if defined(OSSP) && defined(JS_HAS_DSO_OBJECT) && JS_HAS_DSO_OBJECT
+#if defined(JS_HAS_DSO_OBJECT)
 
 JS_BEGIN_EXTERN_C
 

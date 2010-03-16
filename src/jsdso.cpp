@@ -32,10 +32,10 @@
 /* ATTENTION: This is an OSSP js extension to the Mozilla JavaScript engine.
    It was implemented by Ralf S. Engelschall <rse@engelschall.com> for OSSP. */
 
-#if defined(OSSP) && defined(JS_HAS_DSO_OBJECT) && JS_HAS_DSO_OBJECT
+#if defined(JS_HAS_DSO_OBJECT)
 
 /* own headers (part 1/2) */
-#include "jsstddef.h"
+//#include "jsstddef.h"
 
 /* system headers */
 #include <stdio.h>
@@ -48,7 +48,7 @@
 #include "jsapi.h"
 #include "jsatom.h"
 #include "jscntxt.h"
-#include "jsconfig.h"
+//#include "jsconfig.h"
 #include "jsobj.h"
 #include "jsdso.h"
 

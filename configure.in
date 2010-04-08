@@ -20,9 +20,21 @@ AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_LIBTOOL
 
-AC_CHECK_TOOL(JS_CONFIG, js-config, :)
-AC_SUBST(LIBJS_LIBS, `js-config --libs`)
-AC_SUBST(LIBJS_INC, `js-config --cflags`)
+#AC_CHECK_TOOL(JS_CONFIG, js-config, :)
+#AC_SUBST(LIBJSXX_LIBS, `js-config --libs`)
+#AC_SUBST(LIBJSXX_INC, `js-config --cflags`)
+
+
+PKG_CHECK_MODULES(MOZJS, mozilla-js >= 1.9.1)
+AC_SUBST(MOZJS_CFLAGS)
+AC_SUBST(MOZJS_LIBS)
+
+#
+# needed for js headers:
+#
+PKG_CHECK_MODULES(XULU,libxul-unstable >= 1.9.1)
+AC_SUBST(XULU_CFLAGS)
+AC_SUBST(XULU_LIBS)
 
 
 dnl Checks for header files.
@@ -42,5 +54,5 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 
 dnl Checks for library functions.
 
-AC_OUTPUT(Makefile src/Makefile sqlite/Makefile)
+AC_OUTPUT(Makefile src/Makefile)
 

@@ -23,11 +23,17 @@ typedef struct _SysUtil {
     JSContext *cx;
     JSObject* SysUtil;
 
-    gpointer SysUtilPtr;
 } SysUtilData;
 
-static SysUtilData* SysUtilData;
+static SysUtilData* SysUtilDataPtr;
 
+#define fail_if_not(assert, ...) if (!(assert)) { \
+		fprintf(stderr, "%s:%d :: ", __FUNCTION__, __LINE__ );\
+		fprintf(stderr, __VA_ARGS__);\
+		return JS_FALSE; \
+	}
+
+#define fail_if(assert, ...) fail_if_not (!(assert), __VA_ARGS__)
 
 /*************************************************************************************************/
 
@@ -74,24 +80,17 @@ static JSClass SysUtil_jsClass = {
 };
 /*************************************************************************************************/
 
-/* static funcs: */
-static JSBool SysUtil_s_mainloop(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
-
-    check_args((argc == 0), "must not pass an argument!\n");
-    /*
-    JSObject *bus = JS_ConstructObject(cx, &SysUtil_jsClass, NULL, NULL);
-    SysUtilData* dta = (SysUtilData *) JS_GetPrivate(cx, bus);
-     */
-    g_main_run(mainloop);
-
-    return JS_TRUE;
-}
 
 static JSBool SysUtil_s_system(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 
-    check_args((argc == 0), "must not pass an argument!\n");
+    fail_if_not((argc == 1), "pass the cmd you want to run!\n");
+    fail_if_not(JSVAL_IS_STRING(argv[0]), "arg must be a string (url)!");
+    JSString* cmdStr = JSVAL_TO_STRING(argv[0]);
+    char* cmd = JS_GetStringBytes(cmdStr);
 
-    g_main_loop_quit(mainloop);
+	int ret = system(cmd);
+
+	*rval = INT_TO_JSVAL(ret);
 
     return JS_TRUE;
 }
@@ -103,6 +102,8 @@ static JSFunctionSpec _SysUtilStaticFunctionSpec[] = {
 
 
 ///// Actor Initialization Method
+
+JS_BEGIN_EXTERN_C
 
 JSObject* SysUtilInit(JSContext *cx, JSObject *obj) {
     if (obj == NULL)
@@ -117,9 +118,11 @@ JSObject* SysUtilInit(JSContext *cx, JSObject *obj) {
             _SysUtilStaticFunctionSpec // static functions
             );
 
-    SysUtilData = new SysUtilData;
-    SysUtilData->cx = cx;
+    SysUtilDataPtr = new SysUtilData;
+    SysUtilDataPtr->cx = cx;
     return o;
 }
+
+JS_END_EXTERN_C
 
 /*************************************************************************************************/

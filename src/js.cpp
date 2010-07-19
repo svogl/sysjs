@@ -75,6 +75,7 @@
 #include "prmjtime.h"
 
 #include "jsdso.h"
+#include "js_sysutil.h"
 
 #ifdef JSDEBUGGER
 #include "jsdebug.h"
@@ -4834,6 +4835,10 @@ main(int argc, char **argv, char **envp)
 #if defined(JS_HAS_DSO_OBJECT)
     JSObject* dso = js_InitDSOClass(cx, glob);
     if (!dso) 
+        return 1;
+
+    JSObject* sysUtl = SysUtilInit(cx, glob);
+    if (!sysUtl) 
         return 1;
 #endif
 

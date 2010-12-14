@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(src/js.cpp)
 dnl Every other copy of the package version number gets its value from here
-AM_INIT_AUTOMAKE(sysjs, 0.1.0)
+AM_INIT_AUTOMAKE(sysjs, 3.6.8)
 
 dnl create a config.h file (Automake will add -DHAVE_CONFIG_H)
 AM_CONFIG_HEADER(config.h)
@@ -25,14 +25,14 @@ AC_PROG_LIBTOOL
 #AC_SUBST(LIBJSXX_INC, `js-config --cflags`)
 
 
-PKG_CHECK_MODULES(MOZJS, mozilla-js >= 1.9.1)
+PKG_CHECK_MODULES(MOZJS, mozilla-js >= 1.9.2)
 AC_SUBST(MOZJS_CFLAGS)
 AC_SUBST(MOZJS_LIBS)
 
 #
 # needed for js headers:
 #
-PKG_CHECK_MODULES(XULU,libxul-unstable >= 1.9.1)
+PKG_CHECK_MODULES(XULU,libxul-unstable >= 1.9.2)
 AC_SUBST(XULU_CFLAGS)
 AC_SUBST(XULU_LIBS)
 

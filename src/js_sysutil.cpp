@@ -80,6 +80,28 @@ static JSClass SysUtil_jsClass = {
 };
 /*************************************************************************************************/
 
+/** this function maps the getenv()-call. if an environment-variable is found, a 
+ * string is returned, null otherwise 
+ */
+static JSBool SysUtil_s_getenv(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+
+    fail_if_not((argc == 1), "which env do you wnt to read?\n");
+    fail_if_not(JSVAL_IS_STRING(argv[0]), "arg must be a string (env.var)!");
+    JSString* varStr = JSVAL_TO_STRING(argv[0]);
+    char* var = JS_GetStringBytes(varStr);
+
+    char *val = getenv(var);
+
+    if (val!=NULL) {
+	    JSString* valStr=NULL;
+	    valStr = JS_NewStringCopyZ(cx, val);
+	    *rval = STRING_TO_JSVAL(valStr);
+    } else {
+	    // no match
+	    *rval = JSVAL_NULL;
+    }
+    return JS_TRUE;
+}
 
 static JSBool SysUtil_s_system(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 
@@ -97,6 +119,7 @@ static JSBool SysUtil_s_system(JSContext *cx, JSObject *obj, uintN argc, jsval *
 
 static JSFunctionSpec _SysUtilStaticFunctionSpec[] = {
     { "system", SysUtil_s_system, 0, 0, 0},
+    { "getenv", SysUtil_s_getenv, 0, 0, 0},
     { 0, 0, 0, 0, 0}
 };
 

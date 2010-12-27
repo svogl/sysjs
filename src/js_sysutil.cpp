@@ -52,7 +52,7 @@ static JSBool SysUtilConstructor(JSContext *cx, JSObject *obj, uintN argc, jsval
 }
 
 static void SysUtilDestructor(JSContext *cx, JSObject *obj) {
-    printf("Destroying SysUtil object\n");
+    //fprintf(stderr, "Destroying SysUtil object\n");
     SysUtilData* dta = (SysUtilData *) JS_GetPrivate(cx, obj);
     if (dta) {
         delete dta;

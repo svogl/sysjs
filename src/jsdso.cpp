@@ -99,7 +99,7 @@ JS_DSOLoad(JSContext *cx, int *idp, const char *filename)
 
         sprintf(buf,lib_pattern[i], filename);
 
-        printf("dlopen:trying %s\n",buf);
+        //fprintf(stderr, "dlopen:trying %s\n",buf);
 
         handle = dlopen(buf, RTLD_NOW);
         i++;

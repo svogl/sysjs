@@ -65,7 +65,9 @@ typedef union { void *vp; dso_func_t fp; } dso_func_ptr_t;
 static char* lib_pattern[] = {
         "%s",
         "lib%s.so",
+        "lib%s.so.0",
         "lib%s_js.so",
+        "lib%s_js.so.0",
         "lib/lib%s.so",
         "lib/lib%s_js.so",
         ".libs/lib%s_js.so.0", // for automake project development...
@@ -97,7 +99,7 @@ JS_DSOLoad(JSContext *cx, int *idp, const char *filename)
 
         sprintf(buf,lib_pattern[i], filename);
 
-        printf("dlopen:trying %s\n",buf);
+        //fprintf(stderr, "dlopen:trying %s\n",buf);
 
         handle = dlopen(buf, RTLD_NOW);
         i++;

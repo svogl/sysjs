@@ -103,6 +103,16 @@ static JSBool SysUtil_s_getenv(JSContext *cx, JSObject *obj, uintN argc, jsval *
     return JS_TRUE;
 }
 
+static JSBool SysUtil_s_getpid(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+
+    fail_if_not((argc == 0), "no arguments, please.\n");
+	pid_t p = getpid();
+
+    *rval = INT_TO_JSVAL(p);
+
+    return JS_TRUE;
+}
+
 static JSBool SysUtil_s_system(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 
     fail_if_not((argc == 1), "pass the cmd you want to run!\n");
@@ -120,6 +130,7 @@ static JSBool SysUtil_s_system(JSContext *cx, JSObject *obj, uintN argc, jsval *
 static JSFunctionSpec _SysUtilStaticFunctionSpec[] = {
     { "system", SysUtil_s_system, 0, 0, 0},
     { "getenv", SysUtil_s_getenv, 0, 0, 0},
+    { "getpid", SysUtil_s_getpid, 0, 0, 0},
     { 0, 0, 0, 0, 0}
 };
 

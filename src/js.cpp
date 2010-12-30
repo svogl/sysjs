@@ -1051,6 +1051,11 @@ Print(JSContext *cx, uintN argc, jsval *vp)
             return JS_FALSE;
         fprintf(gOutFile, "%s%s", i ? " " : "", bytes);
         JS_free(cx, bytes);
+
+        if (errno != 0) {
+            fprintf(stderr,"Error writing %s\n", strerror(errno) );
+            return JS_FALSE;
+        }
     }
 
     fputc('\n', gOutFile);

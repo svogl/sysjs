@@ -1041,6 +1041,8 @@ Print(JSContext *cx, uintN argc, jsval *vp)
     uintN i;
     JSString *str;
     char *bytes;
+  
+    errno=0;
 
     errno=0;
     argv = JS_ARGV(cx, vp);
@@ -1055,9 +1057,9 @@ Print(JSContext *cx, uintN argc, jsval *vp)
         JS_free(cx, bytes);
 
         if (ret<0 || errno != 0 ) {
-            fprintf(stderr,"Error writing %s\n", strerror(errno) );
-            return JS_FALSE;
-        }
+             fprintf(stderr,"Error writing %s\n", strerror(errno) );
+             return JS_FALSE;
+         }
     }
 
     fputc('\n', gOutFile);
@@ -1065,6 +1067,52 @@ Print(JSContext *cx, uintN argc, jsval *vp)
 
     JS_SET_RVAL(cx, vp, JSVAL_VOID);
     return JS_TRUE;
+}
+
+/** write bytes to stdout, honor errors (sv)
+ */
+static JSBool
+Write(JSContext *cx, uintN argc, jsval *vp)
+{
+    jsval *argv;
+    int fd = fileno(gOutFile);
+    int ret;
+    uintN i;
+    int l=0;
+    JSString *str;
+    char *bytes;
+  
+    errno=0;
+
+    argv = JS_ARGV(cx, vp);
+    for (i = 0; i < argc; i++) {
+        str = JS_ValueToString(cx, argv[i]);
+        if (!str)
+            return JS_FALSE;
+        bytes = JS_EncodeString(cx, str);
+        if (!bytes)
+            return JS_FALSE;
+        if (i) {
+            ret = write(fd," ",1);
+            if (ret<0) goto err;
+            l+=ret;
+        }
+        ret = write(fd,bytes,strlen(bytes) );
+        JS_free(cx, bytes);
+
+        if (ret<0 || errno != 0 ) {
+            goto err;
+        }
+        l+=ret;
+    }
+
+    fflush(gOutFile);
+
+    JS_SET_RVAL(cx, vp, INT_TO_JSVAL(l) );
+    return JS_TRUE;
+err:
+    JS_ReportError(cx, "Error writing: %s\n", strerror(errno) );
+    return JS_FALSE;
 }
 
 static JSBool
@@ -3701,6 +3749,7 @@ static JSFunctionSpec shell_functions[] = {
     JS_FS("load",           Load,           1,0,0),
     JS_FN("readline",       ReadLine,       0,0),
     JS_FN("print",          Print,          0,0),
+    JS_FN("write",          Write,          0,0),
     JS_FS("help",           Help,           0,0,0),
     JS_FS("quit",           Quit,           0,0,0),
     JS_FN("assertEq",       AssertEq,       2,0),
@@ -3784,6 +3833,7 @@ static const char *const shell_help_messages[] = {
 "load(['foo.js' ...])     Load files named by string arguments",
 "readline()               Read a single line from stdin",
 "print([exp ...])         Evaluate and print expressions",
+"write([exp ...])         Evaluate and print expressions, w/o newline",
 "help([name ...])         Display usage and help messages",
 "quit()                   Quit the shell",
 "assertEq(actual, expected[, msg])\n"

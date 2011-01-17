@@ -1037,10 +1037,12 @@ static JSBool
 Print(JSContext *cx, uintN argc, jsval *vp)
 {
     jsval *argv;
+    int ret;
     uintN i;
     JSString *str;
     char *bytes;
 
+    errno=0;
     argv = JS_ARGV(cx, vp);
     for (i = 0; i < argc; i++) {
         str = JS_ValueToString(cx, argv[i]);
@@ -1049,10 +1051,10 @@ Print(JSContext *cx, uintN argc, jsval *vp)
         bytes = JS_EncodeString(cx, str);
         if (!bytes)
             return JS_FALSE;
-        fprintf(gOutFile, "%s%s", i ? " " : "", bytes);
+        ret = fprintf(gOutFile, "%s%s", i ? " " : "", bytes);
         JS_free(cx, bytes);
 
-        if (errno != 0) {
+        if (ret<0 || errno != 0 ) {
             fprintf(stderr,"Error writing %s\n", strerror(errno) );
             return JS_FALSE;
         }
@@ -4844,6 +4846,10 @@ main(int argc, char **argv, char **envp)
 
     JSObject* sysUtl = SysUtilInit(cx, glob);
     if (!sysUtl) 
+        return 1;
+
+    JSObject* sockObj = SocketInit(cx, glob);
+    if (!sockObj) 
         return 1;
 #endif
 

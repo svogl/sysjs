@@ -1,6 +1,10 @@
 #include <math.h>
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <stdlib.h>
 
 #include <string>
@@ -35,7 +39,18 @@ static SysUtilData* SysUtilDataPtr;
 
 #define fail_if(assert, ...) fail_if_not (!(assert), __VA_ARGS__)
 
+#define ADD_INT_CONST(cx,obj,prop, val) do { \
+		jsval v = INT_TO_JSVAL( val); \
+		JSBool ret = JS_SetProperty(cx, obj, prop, &v ); \
+		if (!ret) printf("failed for %s\n", #prop ); \
+	} while (0)
+
+#define INT_PROP(p, v) \
+		ADD_INT_CONST(cx,obj, p, v)
+
+
 /*************************************************************************************************/
+JSBool _SysUtilDefineProps(JSContext *cx, JSObject *obj);
 
 /** SysUtil Constructor */
 static JSBool SysUtilConstructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
@@ -48,7 +63,8 @@ static JSBool SysUtilConstructor(JSContext *cx, JSObject *obj, uintN argc, jsval
             return JS_FALSE;
         return JS_TRUE;
     }
-    return JS_FALSE;
+
+    return JS_TRUE;
 }
 
 static void SysUtilDestructor(JSContext *cx, JSObject *obj) {
@@ -127,6 +143,160 @@ static JSBool SysUtil_s_system(JSContext *cx, JSObject *obj, uintN argc, jsval *
     return JS_TRUE;
 }
 
+
+static struct JSPropertySpec p[1];
+
+JSBool _SysUtilDefineProps(JSContext *cx, JSObject *obj)
+{
+//	JsClass class* = JS_GetClass(cx, obj);
+	INT_PROP("E2BIG", E2BIG);
+	INT_PROP("EACCES", EACCES);
+	INT_PROP("EADDRINUSE", EADDRINUSE);
+	INT_PROP("EADDRNOTAVAIL", EADDRNOTAVAIL);
+	INT_PROP("EAFNOSUPPORT", EAFNOSUPPORT);
+	INT_PROP("EAGAIN", EAGAIN);
+	INT_PROP("EALREADY", EALREADY);
+	INT_PROP("EBADF", EBADF);
+	INT_PROP("EBADMSG", EBADMSG);
+	INT_PROP("EBUSY", EBUSY);
+	INT_PROP("ECANCELED", ECANCELED);
+	INT_PROP("ECHILD", ECHILD);
+	INT_PROP("ECONNABORTED", ECONNABORTED);
+	INT_PROP("ECONNREFUSED", ECONNREFUSED);
+	INT_PROP("ECONNRESET", ECONNRESET);
+	INT_PROP("EDEADLK", EDEADLK);
+	INT_PROP("EDESTADDRREQ", EDESTADDRREQ);
+	INT_PROP("EDOM", EDOM);
+	INT_PROP("EDQUOT", EDQUOT);
+	INT_PROP("EEXIST", EEXIST);
+	INT_PROP("EFAULT", EFAULT);
+	INT_PROP("EFBIG", EFBIG);
+	INT_PROP("EHOSTUNREACH", EHOSTUNREACH);
+	INT_PROP("EIDRM", EIDRM);
+	INT_PROP("EILSEQ", EILSEQ);
+	INT_PROP("EINPROGRESS", EINPROGRESS);
+	INT_PROP("EINTR", EINTR);
+	INT_PROP("EINVAL", EINVAL);
+	INT_PROP("EIO", EIO);
+	INT_PROP("EISCONN", EISCONN);
+	INT_PROP("EISDIR", EISDIR);
+	INT_PROP("ELOOP", ELOOP);
+	INT_PROP("EMFILE", EMFILE);
+	INT_PROP("EMLINK", EMLINK);
+	INT_PROP("EMSGSIZE", EMSGSIZE);
+	INT_PROP("EMULTIHOP", EMULTIHOP);
+	INT_PROP("ENAMETOOLONG", ENAMETOOLONG);
+	INT_PROP("ENETDOWN", ENETDOWN);
+	INT_PROP("ENETRESET", ENETRESET);
+	INT_PROP("ENETUNREACH", ENETUNREACH);
+	INT_PROP("ENFILE", ENFILE);
+	INT_PROP("ENOBUFS", ENOBUFS);
+	INT_PROP("ENODATA", ENODATA);
+	INT_PROP("ENODEV", ENODEV);
+	INT_PROP("ENOENT", ENOENT);
+	INT_PROP("ENOEXEC", ENOEXEC);
+	INT_PROP("ENOLCK", ENOLCK);
+	INT_PROP("ENOLINK", ENOLINK);
+	INT_PROP("ENOMEM", ENOMEM);
+	INT_PROP("ENOMSG", ENOMSG);
+	INT_PROP("ENOPROTOOPT", ENOPROTOOPT);
+	INT_PROP("ENOSPC", ENOSPC);
+	INT_PROP("ENOSR", ENOSR);
+	INT_PROP("ENOSTR", ENOSTR);
+	INT_PROP("ENOSYS", ENOSYS);
+	INT_PROP("ENOTCONN", ENOTCONN);
+	INT_PROP("ENOTDIR", ENOTDIR);
+	INT_PROP("ENOTEMPTY", ENOTEMPTY);
+	INT_PROP("ENOTSOCK", ENOTSOCK);
+	INT_PROP("ENOTSUP", ENOTSUP);
+	INT_PROP("ENOTTY", ENOTTY);
+	INT_PROP("ENXIO", ENXIO);
+	INT_PROP("EOPNOTSUPP", EOPNOTSUPP);
+	INT_PROP("EOVERFLOW", EOVERFLOW);
+	INT_PROP("EPERM", EPERM);
+	INT_PROP("EPIPE", EPIPE);
+	INT_PROP("EPROTO", EPROTO);
+	INT_PROP("EPROTONOSUPPORT", EPROTONOSUPPORT);
+	INT_PROP("EPROTOTYPE", EPROTOTYPE);
+	INT_PROP("ERANGE", ERANGE);
+	INT_PROP("EROFS", EROFS);
+	INT_PROP("ESPIPE", ESPIPE);
+	INT_PROP("ESRCH", ESRCH);
+	INT_PROP("ESTALE", ESTALE);
+	INT_PROP("ETIMEDOUT", ETIMEDOUT);
+	INT_PROP("ETIME", ETIME);
+	INT_PROP("ETXTBSY", ETXTBSY);
+	INT_PROP("EWOULDBLOCK", EWOULDBLOCK);
+	INT_PROP("EXDEV", EXDEV);
+	INT_PROP("O_APPEND", O_APPEND);
+	INT_PROP("O_CREAT", O_CREAT);
+	INT_PROP("O_DIRECTORY", O_DIRECTORY);
+	INT_PROP("O_EXCL", O_EXCL);
+	INT_PROP("O_EXCL", O_EXCL);
+	INT_PROP("O_NOCTTY", O_NOCTTY);
+	INT_PROP("O_NOFOLLOW", O_NOFOLLOW);
+	INT_PROP("O_RDONLY", O_RDONLY);
+	INT_PROP("O_RDWR", O_RDWR);
+	INT_PROP("O_SYNC", O_SYNC);
+	INT_PROP("O_TRUNC", O_TRUNC);
+	INT_PROP("O_WRONLY", O_WRONLY);
+	INT_PROP("S_IFBLK", S_IFBLK);
+	INT_PROP("S_IFCHR", S_IFCHR);
+	INT_PROP("S_IFDIR", S_IFDIR);
+	INT_PROP("S_IFIFO", S_IFIFO);
+	INT_PROP("S_IFLNK", S_IFLNK);
+	INT_PROP("S_IFMT", S_IFMT);
+	INT_PROP("S_IFREG", S_IFREG);
+	INT_PROP("S_IFSOCK", S_IFSOCK);
+	INT_PROP("SIGABRT", SIGABRT);
+	INT_PROP("SIGALRM", SIGALRM);
+	INT_PROP("SIGBUS", SIGBUS);
+	INT_PROP("SIGCHLD", SIGCHLD);
+	INT_PROP("SIGCONT", SIGCONT);
+	INT_PROP("SIGFPE", SIGFPE);
+	INT_PROP("SIGHUP", SIGHUP);
+	INT_PROP("SIGILL", SIGILL);
+	INT_PROP("SIGINT", SIGINT);
+	INT_PROP("SIGIO", SIGIO);
+	INT_PROP("SIGIOT", SIGIOT);
+	INT_PROP("SIGKILL", SIGKILL);
+	INT_PROP("SIGPIPE", SIGPIPE);
+	INT_PROP("SIGPOLL", SIGPOLL);
+	INT_PROP("SIGPROF", SIGPROF);
+	INT_PROP("SIGPWR", SIGPWR);
+	INT_PROP("SIGQUIT", SIGQUIT);
+	INT_PROP("SIGSEGV", SIGSEGV);
+	INT_PROP("SIGSTKFLT", SIGSTKFLT);
+	INT_PROP("SIGSTOP", SIGSTOP);
+	INT_PROP("SIGSYS", SIGSYS);
+	INT_PROP("SIGTERM", SIGTERM);
+	INT_PROP("SIGTRAP", SIGTRAP);
+	INT_PROP("SIGTSTP", SIGTSTP);
+	INT_PROP("SIGTTIN", SIGTTIN);
+	INT_PROP("SIGTTOU", SIGTTOU);
+	INT_PROP("SIGUNUSED", SIGUNUSED);
+	INT_PROP("SIGURG", SIGURG);
+	INT_PROP("SIGUSR1", SIGUSR1);
+	INT_PROP("SIGUSR2", SIGUSR2);
+	INT_PROP("SIGVTALRM", SIGVTALRM);
+	INT_PROP("SIGWINCH", SIGWINCH);
+	INT_PROP("SIGXCPU", SIGXCPU);
+	INT_PROP("SIGXFSZ", SIGXFSZ);
+	INT_PROP("S_IRGRP", S_IRGRP);
+	INT_PROP("S_IROTH", S_IROTH);
+	INT_PROP("S_IRUSR", S_IRUSR);
+	INT_PROP("S_IRWXG", S_IRWXG);
+	INT_PROP("S_IRWXO", S_IRWXO);
+	INT_PROP("S_IRWXU", S_IRWXU);
+	INT_PROP("S_IWGRP", S_IWGRP);
+	INT_PROP("S_IWOTH", S_IWOTH);
+	INT_PROP("S_IWUSR", S_IWUSR);
+	INT_PROP("S_IXGRP", S_IXGRP);
+	INT_PROP("S_IXOTH", S_IXOTH);
+	INT_PROP("S_IXUSR", S_IXUSR);
+}
+
+
 static JSFunctionSpec _SysUtilStaticFunctionSpec[] = {
     { "system", SysUtil_s_system, 0, 0, 0},
     { "getenv", SysUtil_s_getenv, 0, 0, 0},
@@ -151,9 +321,13 @@ JSObject* SysUtilInit(JSContext *cx, JSObject *obj) {
             NULL, // static properties
             _SysUtilStaticFunctionSpec // static functions
             );
+	if (o) {
+	    SysUtilDataPtr = new SysUtilData;
+	    SysUtilDataPtr->cx = cx;
 
-    SysUtilDataPtr = new SysUtilData;
-    SysUtilDataPtr->cx = cx;
+		_SysUtilDefineProps(cx, o);
+	}
+
     return o;
 }
 

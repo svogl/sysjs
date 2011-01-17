@@ -16,3 +16,5 @@ src/*.o
 src/sysjs
 stamp-h1
 sys_js
+*~
+

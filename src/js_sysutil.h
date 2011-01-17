@@ -40,6 +40,8 @@ JS_BEGIN_EXTERN_C
 /* friend API */
 extern JSObject* SysUtilInit(JSContext *cx, JSObject *obj);
 
+extern JSObject* SocketInit(JSContext *cx, JSObject *obj);
+
 JS_END_EXTERN_C
 
 #endif /* js_sysutil_h___ */

@@ -66,6 +66,8 @@ static JSBool js_sock_construct(JSContext * cx, JSObject * obj, uintN argc, jsva
 	js_sock_obj = (sock_obj_t*)JS_malloc( cx, sizeof(sock_obj_t));
 
 	js_sock_obj->read_buffer = (char*)JS_malloc(cx, 1024);
+printf("PR ADDR %p\n", js_sock_obj);
+printf("RD ADDR %p\n", js_sock_obj->read_buffer);
 	js_sock_obj->sock = -1;
 	js_sock_obj->state = disconnected;
 	JS_SetPrivate(cx, obj, js_sock_obj);
@@ -456,6 +458,7 @@ static JSBool js_sock_poll(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
 {
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
+
 	if (js_sock == NULL) {
 		printf( "Failed to find js object.\n");
 		return JS_FALSE;
@@ -537,12 +540,15 @@ static JSFunctionSpec js_sock_methods[] = {
 	{0}
 };
 
-#define js_sock_ADDRESS 1
+#define js_sock_ADDRESS 3
 #define js_sock_PORT 2
+#define js_sock_FD 1
 
 static JSPropertySpec js_sock_props[] = {
-	{"address", js_sock_ADDRESS, JSPROP_READONLY | JSPROP_PERMANENT},
-	{"port", js_sock_PORT, JSPROP_READONLY | JSPROP_PERMANENT},
+// OLD CODE - maybe reuse later for statistics.
+//	{"address", js_sock_ADDRESS, JSPROP_READONLY | JSPROP_PERMANENT},
+//	{"port", js_sock_PORT, JSPROP_READONLY | JSPROP_PERMANENT},
+	{"fd", js_sock_PORT, JSPROP_READONLY | JSPROP_PERMANENT},
 	{0}
 };
 
@@ -550,7 +556,7 @@ static JSPropertySpec js_sock_props[] = {
 static JSBool js_sock_getProperty(JSContext * cx, JSObject * obj, jsval id, jsval * vp)
 {
 	JSBool res = JS_TRUE;
-//  sock_obj_t *js_sock = JS_GetPrivate(cx, obj);
+    sock_obj_t *js_sock = (sock_obj_t *)JS_GetPrivate(cx, obj);
 	char *name;
 	int param = 0;
 
@@ -563,11 +569,16 @@ static JSBool js_sock_getProperty(JSContext * cx, JSObject * obj, jsval id, jsva
 	}
 
 	switch (param) {
+/*
 	case js_sock_ADDRESS:
 		*vp = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, "unknown"));
 		break;
 	case js_sock_PORT:
 		*vp = INT_TO_JSVAL(1234);
+		break;
+*/
+	case js_sock_FD:
+		*vp = INT_TO_JSVAL(js_sock->sock);
 		break;
 	}
 
@@ -587,7 +598,7 @@ JSBool SocketInit(JSContext * cx, JSObject * obj)
 {
 	JS_InitClass(cx, obj, 
 					NULL, &js_sock_class, js_sock_construct, 
-					3, 
+					1,
 					js_sock_props, js_sock_methods, 
 					js_sock_props, 
 					js_sock_methods);

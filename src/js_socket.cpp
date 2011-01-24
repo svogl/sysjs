@@ -221,7 +221,13 @@ static JSBool js_sock_read_bytes(JSContext * cx, JSObject * obj, uintN argc, jsv
 			*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
 		} else {
 			js_sock->read_buffer[len] = 0;
-			*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer));
+			jsval vec[len];
+			for (int i=0;i<len;i++) {
+				vec[i] = INT_TO_JSVAL((unsigned char)js_sock->read_buffer[i]);
+			}
+			JSObject* arr = JS_NewArrayObject(cx, len, vec);
+
+			*rval = OBJECT_TO_JSVAL(arr);
 		}
 	}
 
@@ -453,6 +459,101 @@ static JSBool js_sock_poll(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 	return JS_TRUE;
 }
 
+/** read a websocket packet - framed by 0x00 ..[utf8 string data].. 0xff 
+ */
+static JSBool js_sock_read_ws_packet(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+{
+	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
+	int read_state=0;
+
+	if (js_sock == NULL) {
+		printf( "Failed to find js object.\n");
+		return JS_FALSE;
+	}
+
+	int ret = 0;
+	size_t len = 1;
+	size_t total_length = 0;
+	int can_run = 1;
+	unsigned char tempbuf[2];
+
+	*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
+
+	js_sock->saveDepth = JS_SuspendRequest(cx);
+	while (can_run) {
+		ret = read(js_sock->sock, tempbuf, 1);
+		if (ret==-1) {
+			JS_ReportError(cx, "read failed: %s", strerror(errno) );
+			return JS_FALSE;
+		}
+		if (ret == 0)
+			break;
+
+		if (read_state==0) {  // try to sync to next frame
+			if (tempbuf[0]==0x00) {
+				read_state=1;
+			}
+			continue;
+		}
+		if (total_length == js_sock->buffer_size - 1) {
+				size_t new_size = js_sock->buffer_size + 1024;
+				char *new_buffer = (char*)JS_realloc(cx,js_sock->read_buffer, new_size);
+
+				js_sock->buffer_size = new_size;
+				js_sock->read_buffer = new_buffer;
+		}
+
+		js_sock->read_buffer[total_length] = tempbuf[0];
+		++total_length;
+
+		if (tempbuf[0]== 0xff) { 
+			total_length--;
+			break;
+		}
+	}
+	JS_ResumeRequest(cx, js_sock->saveDepth);
+
+	if (ret >=0) {
+		js_sock->read_buffer[total_length] = 0;
+ 		*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer));
+	}
+
+	return JS_TRUE;
+}
+
+/** write a websocket packet. pass one string that will be framed by the ws packet header and footer (0x00, 0xff).
+ */
+static JSBool js_sock_write_ws_packet(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+{
+	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
+	if (js_sock == NULL) {
+		printf("Failed to find js object.\n");
+		return JS_FALSE;
+	}
+
+	if (argc == 1) {
+		char *buffer = JS_GetStringBytes(JS_ValueToString(cx, argv[0]));
+		char frame[] = { 0x0, 0xff};
+		int ret, len = strlen(buffer);
+		js_sock->saveDepth = JS_SuspendRequest(cx);
+
+		write(js_sock->sock, &frame[0], 1);
+		ret = write(js_sock->sock, buffer, len);
+		write(js_sock->sock, &frame[1], 1);
+
+		JS_ResumeRequest(cx, js_sock->saveDepth);
+
+		if (ret!=len ) {
+			printf( "switch_js_sock_send failed: %d.\n", ret);
+			*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
+		} else
+			*rval = BOOLEAN_TO_JSVAL(JS_TRUE);
+	}
+
+	return JS_TRUE;
+}
+
+
 /** read a line.
  */
 static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
@@ -533,6 +634,8 @@ static JSFunctionSpec js_sock_methods[] = {
 	{"write", js_sock_send, 1},
 	{"readBytes", js_sock_read_bytes, 1},
 	{"read", js_sock_read, 1},
+	{"read_ws_packet", js_sock_read_ws_packet, 1},
+	{"write_ws_packet", js_sock_write_ws_packet, 1},
 	{"waitForInput", js_sock_wait_for_input, 1},
 	{"poll", js_sock_poll, 1},
 	{"bind", js_sock_bind, 1},

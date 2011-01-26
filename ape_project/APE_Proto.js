@@ -7,6 +7,7 @@ stdin = new Socket(0);
 function APE_Pipe(proto, pipeData) {
 	this.proto = proto;
 	this.pipe = pipeData;
+	this.users = [];
 
 	this.handleData = function(msg) {
 		var text = msg.msg;
@@ -22,10 +23,10 @@ function APE_Pipe(proto, pipeData) {
 	}
 
 	this.handleJoin = function(msg) {
-		print("joined.. ");
+		print("joined.. " + msg.user.properties.name);
 	}
 	this.handleLeft = function(msg) {
-		print("left.. ");
+		print("left..  " + msg.user.properties.name);
 	}
 }
 
@@ -60,9 +61,8 @@ function APE_Proto(socket) {
 			state.pipes[users[i].pubid] = pp;
 			state.names[users[i].properties.name] = pp;
 		}
-		print(JSON.stringify(this.pipes));
-		print(JSON.stringify(this.names));
 	}
+
 	/** lookup the pipe, forward handling to pipe object: */
 	this.handleData = function(msg) {
 		var pid = msg.pipe.pubid;
@@ -94,7 +94,7 @@ function APE_Proto(socket) {
 				print("login");
 				proto.state.sessid = msg.data.sessid;
 				proto.state.connected = true;
-			},
+			}, 
 		"ident" : function(proto, msg) {
 				print("ident");
 				proto.state.user = msg.data.user;
@@ -134,12 +134,12 @@ function APE_Proto(socket) {
 		var l=rawArr.length;
 		var i;
 		for (i=0;i<l;i++) {
-			print("handle" +  JSON.stringify(rawArr[i]));
+			print("handle " +  JSON.stringify(rawArr[i]));
 			this.handleMsg( rawArr[i] );
 		}
 	}
 
-	this.sock.handle = this.handle;
+	this.sock.s.callback = this;
 
 	this.newCmd = function(type, params,options) {
 			var msg = {"cmd": type, "chl": this.chl++, "params": params };
@@ -153,57 +153,8 @@ function APE_Proto(socket) {
 		}
 
 	this.start = function() {
-		this.s.start_ws();
+		this.sock.start_ws();
 	}
 };
 
-var sock = new WS_Socket("localhost.localdomain", 6969);
-var proto = new APE_Proto(sock);
-var ctr=0;
-
-
-
-try {
-var cc = proto.newCmd( "CONNECT", {"name": "f"+new Date().getTime() })
-var cj = proto.newCmd("JOIN", {"channels": "test" });
-
-conn = [ cc , cj ];
-
-sock.start_ws();
-
-sock.handle = function(l) {
-	print ("APE: "+l);
-	try {
-		proto.handle(l);
-	} catch(e) {
-		print(e);
-		print(e.stack);
-	}
-}
-
-print(":");
-
-sock.send( conn );
-
-print(":" );
-
-
-while (true) {
-	print(".");
-	stdin.poll( [ sock.s ], 300);
-	stdin.poll( [ stdin ], 250); // rate limit in case something breaks.
-
-	ctr++;
-	if (ctr%6 == 0) {
-
-		proto.state.names['test'].send("FOOBAR "+ctr);
-		gc();
-	}
-
-}
-
-} catch(e) {
-	print(e);
-	print(e.stack);
-}
 

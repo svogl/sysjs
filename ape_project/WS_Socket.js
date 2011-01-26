@@ -84,8 +84,11 @@ function WS_Socket(host, port) {
 		}
 	}
 	this.s.callback = this;
+	this.callback = null;
 
 	this.handle = function(msg) {
+		if (this.callback) 
+			return this.callback.handle(msg);
 		print("OVERRIDE ME. " + msg );
 	}
 

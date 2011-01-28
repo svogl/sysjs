@@ -20,7 +20,7 @@ stderr.log = function(msg) {
 }
 
 try {
-	var cc = proto.newCmd( "CONNECT", {"name": "f"+new Date().getTime() })
+	var cc = proto.newCmd( "CONNECT", {"name": "f"+new Date().getTime() });
 	var cj = proto.newCmd("JOIN", {"channels": "test" });
 
 	proto.start();

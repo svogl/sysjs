@@ -66,8 +66,6 @@ static JSBool js_sock_construct(JSContext * cx, JSObject * obj, uintN argc, jsva
 	js_sock_obj = (sock_obj_t*)JS_malloc( cx, sizeof(sock_obj_t));
 
 	js_sock_obj->read_buffer = (char*)JS_malloc(cx, 1024);
-printf("PR ADDR %p\n", js_sock_obj);
-printf("RD ADDR %p\n", js_sock_obj->read_buffer);
 	js_sock_obj->sock = -1;
 	js_sock_obj->state = disconnected;
 	JS_SetPrivate(cx, obj, js_sock_obj);
@@ -181,11 +179,16 @@ static JSBool js_sock_send(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 
 		JS_ResumeRequest(cx, js_sock->saveDepth);
 
-		if (ret!=len ) {
+		if (ret==len) {
+			*rval = BOOLEAN_TO_JSVAL(JS_TRUE);
+		} else 
+		if (ret<0) { // exception on error
+			JS_ReportError( cx, "send failed: %d %s.\n", errno, strerror(errno));
+			return JS_FALSE;
+		} else {
 			printf( "switch_js_sock_send failed: %d.\n", ret);
 			*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
-		} else
-			*rval = BOOLEAN_TO_JSVAL(JS_TRUE);
+		} 
 	}
 
 	return JS_TRUE;

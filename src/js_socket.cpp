@@ -51,6 +51,7 @@ struct sock_obj {
 //	apr_pool_t *pool;
 	char *read_buffer;
 	int buffer_size;
+	int buffer_pos;
 	sockstate state;
 	jsrefcount saveDepth;
 };
@@ -66,6 +67,8 @@ static JSBool js_sock_construct(JSContext * cx, JSObject * obj, uintN argc, jsva
 	js_sock_obj = (sock_obj_t*)JS_malloc( cx, sizeof(sock_obj_t));
 
 	js_sock_obj->read_buffer = (char*)JS_malloc(cx, 1024);
+	js_sock_obj->buffer_size = 1024;
+	js_sock_obj->buffer_pos = 0;
 	js_sock_obj->sock = -1;
 	js_sock_obj->state = disconnected;
 	JS_SetPrivate(cx, obj, js_sock_obj);
@@ -201,6 +204,7 @@ static JSBool js_sock_read_bytes(JSContext * cx, JSObject * obj, uintN argc, jsv
 		printf( "Failed to find js object.\n");
 		return JS_FALSE;
 	}
+	errno=0;
 
 	if (argc == 1) {
 		int32 bytes_to_read;
@@ -210,27 +214,41 @@ static JSBool js_sock_read_bytes(JSContext * cx, JSObject * obj, uintN argc, jsv
 		JS_ValueToInt32(cx, argv[0], &bytes_to_read);
 		len = (size_t) bytes_to_read;
 
-		if (js_sock->buffer_size < len) {
-			js_sock->read_buffer = (char*)JS_realloc(cx, js_sock->read_buffer, bytes_to_read + 1024);
-			js_sock->buffer_size = bytes_to_read + 1;
+		if (js_sock->buffer_pos>0 ) { // maybe we've got some old data...
+			len -= js_sock->buffer_pos;
+		}
+		if (js_sock->buffer_size < bytes_to_read) {
+			js_sock->read_buffer = (char*)JS_realloc(cx, js_sock->read_buffer, js_sock->buffer_size+bytes_to_read + 1024);
+			js_sock->buffer_size += bytes_to_read + 1;
 		}
 
 		js_sock->saveDepth = JS_SuspendRequest(cx);
-		ret = read(js_sock->sock, js_sock->read_buffer, len);
+
+		if ( js_sock->buffer_pos >= bytes_to_read ) {
+			ret = bytes_to_read;
+		} else {
+			ret = read(js_sock->sock, js_sock->read_buffer + js_sock->buffer_pos, len);
+		}
 		JS_ResumeRequest(cx, js_sock->saveDepth);
 
-		if (ret < len ) {
-			printf( "sock_read failed: %d.\n", ret);
+		if (ret < bytes_to_read ) {
+			printf( "read_bytes failed: %d %s.\n", ret, strerror(errno));
 			*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
 		} else {
-			js_sock->read_buffer[len] = 0;
-			jsval vec[len];
-			for (int i=0;i<len;i++) {
+			js_sock->read_buffer[bytes_to_read] = 0;
+			jsval vec[bytes_to_read];
+			for (int i=0;i<bytes_to_read;i++) {
 				vec[i] = INT_TO_JSVAL((unsigned char)js_sock->read_buffer[i]);
 			}
-			JSObject* arr = JS_NewArrayObject(cx, len, vec);
+			JSObject* arr = JS_NewArrayObject(cx, bytes_to_read, vec);
 
 			*rval = OBJECT_TO_JSVAL(arr);
+
+			memmove(js_sock->read_buffer, 
+					js_sock->read_buffer+bytes_to_read, 
+					js_sock->buffer_pos-bytes_to_read);
+
+			js_sock->buffer_pos -=bytes_to_read;
 		}
 	}
 
@@ -248,8 +266,7 @@ static JSBool js_sock_wait_for_input(JSContext * cx, JSObject * obj, uintN argc,
 	int ret;
 
 	if (js_sock == NULL) {
-		fprintf(stderr,"Failed to find js object.\n");
-		JS_ReportError(cx, "socket is closed!" );
+		JS_ReportError(cx, "object error - no private data!" );
 		return JS_FALSE;
 	}
 
@@ -441,7 +458,7 @@ static JSBool js_sock_poll(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 			continue;
 		}
 		fds[i].fd = sock_data->sock;
-		fds[i].events= POLLIN | POLLERR | POLLRDHUP;
+		fds[i].events= POLLIN | POLLPRI | POLLRDHUP | POLLRDNORM ;
 		fds[i].revents=0;
 	}
 
@@ -450,12 +467,19 @@ static JSBool js_sock_poll(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 	for (i=0;i<len;i++) {
 		jsval f_argv;
 		jsval f_ret;
-		if ( fds[i].revents & POLLIN ) {
-			JS_CallFunctionName(cx, sockArray[i], "data", 0, &f_argv, &f_ret);
-		}
+		int ret;
 		if ( fds[i].revents & (POLLERR |POLLHUP |POLLNVAL|POLLRDHUP) ) {
 			f_argv = INT_TO_JSVAL(fds[i].revents);
-			JS_CallFunctionName(cx, sockArray[i], "error", 1, &f_argv, &f_ret);
+			ret = JS_CallFunctionName(cx, sockArray[i], "error", 1, &f_argv, &f_ret);
+			if (ret == JS_FALSE) {
+				return ret;
+			}
+		}
+		if ( fds[i].revents & POLLIN ) {
+			ret = JS_CallFunctionName(cx, sockArray[i], "data", 0, &f_argv, &f_ret);
+			if (ret == JS_FALSE) {
+				return ret;
+			}
 		}
 	}
 
@@ -562,54 +586,101 @@ static JSBool js_sock_write_ws_packet(JSContext * cx, JSObject * obj, uintN argc
 static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
 {
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
+	int ret = 0;
+	size_t len = 1;
+	size_t total_length = 0;
+	int can_run = 1;
+	char* read_buffer;
+	char* tmp;
+	int read_size;
 
 	if (js_sock == NULL) {
 		printf( "Failed to find js object.\n");
 		return JS_FALSE;
 	}
 
-	int ret = 0;
-	size_t len = 1;
-	size_t total_length = 0;
-	int can_run = 1;
-	char tempbuf[2];
+
+	if (js_sock->buffer_pos>0) { // maybe we've got some old lines...
+		read_buffer = js_sock->read_buffer;
+		ret = js_sock->buffer_pos;
+
+		while ( *read_buffer != '\n'  && ret>=0) {
+			ret--;
+			read_buffer++;
+		}
+
+		if (*read_buffer == '\n') {
+			*read_buffer='\0';
+
+			if (read_buffer > js_sock->read_buffer && read_buffer[-1]=='\r' ) {
+				read_buffer[-1]='\0';
+			}
+			*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer ));
+
+			if (ret>0) {
+				memmove(js_sock->read_buffer, read_buffer+1, ret);
+			} else {
+				ret=0;
+			}
+			js_sock->buffer_pos = ret;
+
+			return JS_TRUE;
+		}
+	}
+
+	read_buffer = js_sock->read_buffer + js_sock->buffer_pos;
+	read_size = js_sock->buffer_size - js_sock->buffer_pos;
+	read_buffer[0] = '\0';
 
 	*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
 
 	js_sock->saveDepth = JS_SuspendRequest(cx);
 	while (can_run) {
-		ret = read(js_sock->sock, tempbuf, 1);
+		ret = read(js_sock->sock, read_buffer, read_size);
 		if (ret==-1) {
 			JS_ReportError(cx, "read failed: %s", strerror(errno) );
 			return JS_FALSE;
 		}
 		if (ret == 0)
 			break;
-
-		if (total_length == js_sock->buffer_size - 1) {
+		// terminate on newline..:
+		while ( *read_buffer != '\n'  && ret) {
+			ret--;
+			read_buffer++;
+		}
+		if (*read_buffer == '\n') {
+			break;
+		}
+		if ( read_size <= 8 ) { // realloc early
 				size_t new_size = js_sock->buffer_size + 1024;
 				char *new_buffer = (char*)JS_realloc(cx,js_sock->read_buffer, new_size);
 
 				js_sock->buffer_size = new_size;
 				js_sock->read_buffer = new_buffer;
-		}
 
-		js_sock->read_buffer[total_length] = tempbuf[0];
+				read_size+=1024;
+				read_buffer = new_buffer + new_size - read_size;
+		}
 		++total_length;
-
-		if (tempbuf[0]=='\n') {
-			break;
-		}
 	}
 	JS_ResumeRequest(cx, js_sock->saveDepth);
 
-	if (ret >=0) {
-		if (total_length >0 && js_sock->read_buffer[total_length-1]=='\n');
-			total_length--;
-		if (total_length >0 && js_sock->read_buffer[total_length-1]=='\r');
-			total_length--;
-		js_sock->read_buffer[total_length] = 0;
-		*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer));
+	if (*read_buffer == '\n') {
+
+		*read_buffer = '\0';
+		if (read_buffer>js_sock->read_buffer && read_buffer[-1]=='\r' ) {
+			read_buffer[-1]='\0';
+		}
+		*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer + js_sock->buffer_pos ));
+
+		if (ret>0) {
+			// some bytes have been left over...
+			memmove(js_sock->read_buffer, read_buffer+1, ret);
+		}
+		js_sock->read_buffer[ret]='\0';
+		js_sock->buffer_pos = ret;
+	} else {
+		// no more data available - give up (we read half a line but want more.)
 	}
 
 	return JS_TRUE;

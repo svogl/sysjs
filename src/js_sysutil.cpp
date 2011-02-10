@@ -49,7 +49,6 @@ static SysUtilData* SysUtilDataPtr;
 #define INT_PROP(p, v) \
 		ADD_INT_CONST(cx,obj, p, v)
 
-
 /*************************************************************************************************/
 JSBool _SysUtilDefineProps(JSContext *cx, JSObject *obj);
 
@@ -154,7 +153,7 @@ static JSBool SysUtil_s_open(JSContext *cx, JSObject *obj, uintN argc, jsval *ar
     char* file = JS_GetStringBytes(cmdStr);
 	jsint flags = JSVAL_TO_INT(argv[1]);
 
-	int ret = open(file, flags, 0666);
+	int ret = open(file, flags, 0644);
 	
 	if (ret == -1) {
 		JS_ReportError(cx, "open failed: %s", strerror(errno));
@@ -180,7 +179,59 @@ static JSBool SysUtil_s_close(JSContext *cx, JSObject *obj, uintN argc, jsval *a
 }
 
 
-static struct JSPropertySpec p[1];
+static JSBool SysUtil_s_unlink(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+
+    fail_if_not(cx, (argc == 1), "pass the file to delete!\n");
+    fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a string!");
+    JSString* cmdStr = JSVAL_TO_STRING(argv[0]);
+    char* file = JS_GetStringBytes(cmdStr);
+
+	int ret = unlink(file);
+
+	if (ret == -1) {
+		JS_ReportError(cx, "unlink failed: %s", strerror(errno));
+		return JS_FALSE;
+	}
+
+	*rval = INT_TO_JSVAL(ret);
+    return JS_TRUE;
+}
+
+static JSBool SysUtil_s_rename(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+
+    fail_if_not(cx, (argc == 2), "pass the cmd you want to run!\n");
+    fail_if_not(cx, JSVAL_IS_STRING(argv[0]) && JSVAL_IS_STRING(argv[1]), "args must be string!");
+    JSString* fromStr = JSVAL_TO_STRING(argv[0]);
+    JSString* toStr = JSVAL_TO_STRING(argv[1]);
+    char* from = JS_GetStringBytes(fromStr);
+    char* to = JS_GetStringBytes(toStr);
+
+	int ret = rename(from, to);
+
+	if (ret == -1) {
+		JS_ReportError(cx, "rename failed: %s", strerror(errno));
+		return JS_FALSE;
+	}
+
+	*rval = INT_TO_JSVAL(ret);
+    return JS_TRUE;
+}
+
+
+static JSBool SysUtil_s_sleep(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+
+    fail_if_not(cx, (argc == 1), "pass the milliseconds you want to sleep!\n");
+    fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a int!");
+
+	jsint ms = JSVAL_TO_INT(argv[0]);
+
+	int ret = usleep(ms*1000);
+
+	*rval = INT_TO_JSVAL(ret);
+
+    return JS_TRUE;
+}
+
 
 JSBool _SysUtilDefineProps(JSContext *cx, JSObject *obj)
 {
@@ -339,6 +390,9 @@ static JSFunctionSpec _SysUtilStaticFunctionSpec[] = {
     { "getpid", SysUtil_s_getpid, 0, 0, 0},
     { "open", SysUtil_s_open, 0, 0, 0},
     { "close", SysUtil_s_close, 0, 0, 0},
+    { "unlink", SysUtil_s_unlink, 0, 0, 0},
+    { "rename", SysUtil_s_rename, 0, 0, 0},
+    { "sleep", SysUtil_s_sleep, 0, 0, 0},
     { 0, 0, 0, 0, 0}
 };
 

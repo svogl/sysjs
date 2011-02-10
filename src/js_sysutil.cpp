@@ -221,7 +221,7 @@ static JSBool SysUtil_s_rename(JSContext *cx, JSObject *obj, uintN argc, jsval *
 static JSBool SysUtil_s_sleep(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 
     fail_if_not(cx, (argc == 1), "pass the milliseconds you want to sleep!\n");
-    fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a int!");
+    fail_if_not(cx, JSVAL_IS_INT(argv[0]), "arg must be a int!");
 
 	jsint ms = JSVAL_TO_INT(argv[0]);
 

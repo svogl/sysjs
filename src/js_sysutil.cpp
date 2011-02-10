@@ -164,9 +164,6 @@ static JSBool SysUtil_s_open(JSContext *cx, JSObject *obj, uintN argc, jsval *ar
 	*rval = INT_TO_JSVAL(ret);
     return JS_TRUE;
 }
-flags = new SysUtil();
-fd = SysUtil.open("/tmp/x", flags.O_CREAT | flags.O_RDWR | flags.O_TRUNC );
-
 
 static JSBool SysUtil_s_close(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 

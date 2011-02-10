@@ -31,9 +31,10 @@ typedef struct _SysUtil {
 
 static SysUtilData* SysUtilDataPtr;
 
-#define fail_if_not(assert, ...) if (!(assert)) { \
+#define fail_if_not(cx, assert, ...) if (!(assert)) { \
 		fprintf(stderr, "%s:%d :: ", __FUNCTION__, __LINE__ );\
 		fprintf(stderr, __VA_ARGS__);\
+		JS_ReportError(cx, __VA_ARGS__); \
 		return JS_FALSE; \
 	}
 
@@ -101,8 +102,8 @@ static JSClass SysUtil_jsClass = {
  */
 static JSBool SysUtil_s_getenv(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 
-    fail_if_not((argc == 1), "which env do you wnt to read?\n");
-    fail_if_not(JSVAL_IS_STRING(argv[0]), "arg must be a string (env.var)!");
+    fail_if_not(cx, (argc == 1), "which env do you wnt to read?\n");
+    fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a string (env.var)!");
     JSString* varStr = JSVAL_TO_STRING(argv[0]);
     char* var = JS_GetStringBytes(varStr);
 
@@ -121,7 +122,7 @@ static JSBool SysUtil_s_getenv(JSContext *cx, JSObject *obj, uintN argc, jsval *
 
 static JSBool SysUtil_s_getpid(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 
-    fail_if_not((argc == 0), "no arguments, please.\n");
+    fail_if_not(cx, (argc == 0), "no arguments, please.\n");
 	pid_t p = getpid();
 
     *rval = INT_TO_JSVAL(p);
@@ -131,12 +132,50 @@ static JSBool SysUtil_s_getpid(JSContext *cx, JSObject *obj, uintN argc, jsval *
 
 static JSBool SysUtil_s_system(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 
-    fail_if_not((argc == 1), "pass the cmd you want to run!\n");
-    fail_if_not(JSVAL_IS_STRING(argv[0]), "arg must be a string (url)!");
+    fail_if_not(cx, (argc == 1), "pass the cmd you want to run!\n");
+    fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a string (url)!");
     JSString* cmdStr = JSVAL_TO_STRING(argv[0]);
     char* cmd = JS_GetStringBytes(cmdStr);
 
 	int ret = system(cmd);
+
+	*rval = INT_TO_JSVAL(ret);
+
+    return JS_TRUE;
+}
+
+static JSBool SysUtil_s_open(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+
+    fail_if_not(cx, (argc == 2), "pass the (file,flags)");
+    fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg0 must be a string (path)!");
+    fail_if_not(cx, JSVAL_IS_INT(argv[1]), "arg1 must be a int (flags)!");
+
+    JSString* cmdStr = JSVAL_TO_STRING(argv[0]);
+    char* file = JS_GetStringBytes(cmdStr);
+	jsint flags = JSVAL_TO_INT(argv[1]);
+
+	int ret = open(file, flags, 0666);
+	
+	if (ret == -1) {
+		JS_ReportError(cx, "open failed: %s", strerror(errno));
+		return JS_FALSE;
+	}
+
+	*rval = INT_TO_JSVAL(ret);
+    return JS_TRUE;
+}
+flags = new SysUtil();
+fd = SysUtil.open("/tmp/x", flags.O_CREAT | flags.O_RDWR | flags.O_TRUNC );
+
+
+static JSBool SysUtil_s_close(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+
+    fail_if_not(cx, (argc == 1), "pass the fd you want to close!\n");
+    fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a int!");
+
+	jsint fd = JSVAL_TO_INT(argv[0]);
+
+	int ret = close(fd);
 
 	*rval = INT_TO_JSVAL(ret);
 
@@ -301,6 +340,8 @@ static JSFunctionSpec _SysUtilStaticFunctionSpec[] = {
     { "system", SysUtil_s_system, 0, 0, 0},
     { "getenv", SysUtil_s_getenv, 0, 0, 0},
     { "getpid", SysUtil_s_getpid, 0, 0, 0},
+    { "open", SysUtil_s_open, 0, 0, 0},
+    { "close", SysUtil_s_close, 0, 0, 0},
     { 0, 0, 0, 0, 0}
 };
 

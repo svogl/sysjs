@@ -571,10 +571,9 @@ static JSBool js_sock_write_ws_packet(JSContext * cx, JSObject * obj, uintN argc
 		JS_ResumeRequest(cx, js_sock->saveDepth);
 
 		if (ret!=len ) {
-			printf( "switch_js_sock_send failed: %d %s.\n", ret, strerror(errno));
-			*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
-		} else
-			*rval = BOOLEAN_TO_JSVAL(JS_TRUE);
+			JS_ReportError(cx, "switch_js_sock_send failed: %d %s.\n", ret, strerror(errno));
+			return JS_FALSE;
+		}
 	}
 
 	return JS_TRUE;

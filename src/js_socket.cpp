@@ -60,8 +60,15 @@ typedef struct sock_obj sock_obj_t;
 
 /* js_sock Object */
 /*********************************************************************************/
-static JSBool js_sock_construct(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+#if JS_VERSION >= 185
+static JSBool js_sock_construct(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_construct(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock_obj = 0;
 
 	js_sock_obj = (sock_obj_t*)JS_malloc( cx, sizeof(sock_obj_t));
@@ -83,7 +90,11 @@ static JSBool js_sock_construct(JSContext * cx, JSObject * obj, uintN argc, jsva
 	return JS_TRUE;
 }
 
-static void js_sock_destroy(JSContext * cx, JSObject * obj)
+#if JS_VERSION >= 185
+static void js_sock_destroy(JSContext *cx, JSObject* obj)
+#else
+static JSBool js_sock_destroy(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+#endif
 {
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	if (js_sock == NULL)
@@ -98,17 +109,28 @@ static void getInfo(void)
 {
 }
 
-static JSBool js_sock_connect(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+#if JS_VERSION >= 185
+static JSBool js_sock_connect(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_connect(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	if (js_sock == NULL) {
 		printf("Failed to find js object.\n");
 		return JS_FALSE;
 	}
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, BOOLEAN_TO_JSVAL(JS_FALSE));
+#else
 	*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
+#endif
 
 	if (argc == 2) {
-		char *host = JS_GetStringBytes(JS_ValueToString(cx, argv[0]));
+		char *host = JS_EncodeString(cx,JS_ValueToString(cx, argv[0]));
 		char portnum[8];
 		int32 port;
         struct addrinfo hints;
@@ -160,13 +182,24 @@ static JSBool js_sock_connect(JSContext * cx, JSObject * obj, uintN argc, jsval 
 		freeaddrinfo(result);     
 
 		JS_ResumeRequest(cx, js_sock->saveDepth);
+#if JS_VERSION >= 185
+	    JS_SET_RVAL(cx, vp, BOOLEAN_TO_JSVAL(JS_TRUE));
+#else
 		*rval = BOOLEAN_TO_JSVAL(JS_TRUE);
+#endif	
 	}
 	return JS_TRUE;
 }
 
-static JSBool js_sock_send(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+#if JS_VERSION >= 185
+static JSBool js_sock_send(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_send(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	if (js_sock == NULL) {
 		printf("Failed to find js object.\n");
@@ -174,7 +207,7 @@ static JSBool js_sock_send(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 	}
 
 	if (argc == 1) {
-		char *buffer = JS_GetStringBytes(JS_ValueToString(cx, argv[0]));
+		char *buffer = JS_EncodeString(cx,JS_ValueToString(cx, argv[0]));
 		int ret, len = strlen(buffer);
 		js_sock->saveDepth = JS_SuspendRequest(cx);
 
@@ -183,22 +216,37 @@ static JSBool js_sock_send(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 		JS_ResumeRequest(cx, js_sock->saveDepth);
 
 		if (ret==len) {
+#if JS_VERSION >= 185
+		    JS_SET_RVAL(cx, vp, BOOLEAN_TO_JSVAL(JS_TRUE));
+#else
 			*rval = BOOLEAN_TO_JSVAL(JS_TRUE);
+#endif	
 		} else 
 		if (ret<0) { // exception on error
 			JS_ReportError( cx, "send failed: %d %s.\n", errno, strerror(errno));
 			return JS_FALSE;
 		} else {
 			printf( "switch_js_sock_send failed: %d.\n", ret);
+#if JS_VERSION >= 185
+		    JS_SET_RVAL(cx, vp, BOOLEAN_TO_JSVAL(JS_FALSE));
+#else
 			*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
+#endif	
 		} 
 	}
 
 	return JS_TRUE;
 }
 
-static JSBool js_sock_read_bytes(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+#if JS_VERSION >= 185
+static JSBool js_sock_read_bytes(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_read_bytes(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	if (js_sock == NULL) {
 		printf( "Failed to find js object.\n");
@@ -233,7 +281,11 @@ static JSBool js_sock_read_bytes(JSContext * cx, JSObject * obj, uintN argc, jsv
 
 		if (ret < bytes_to_read ) {
 			printf( "read_bytes failed: %d %s.\n", ret, strerror(errno));
+#if JS_VERSION >= 185
+		    JS_SET_RVAL(cx, vp, BOOLEAN_TO_JSVAL(JS_FALSE));
+#else
 			*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
+#endif
 		} else {
 			js_sock->read_buffer[bytes_to_read] = 0;
 			jsval vec[bytes_to_read];
@@ -242,8 +294,11 @@ static JSBool js_sock_read_bytes(JSContext * cx, JSObject * obj, uintN argc, jsv
 			}
 			JSObject* arr = JS_NewArrayObject(cx, bytes_to_read, vec);
 
+#if JS_VERSION >= 185
+		    JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(arr));
+#else
 			*rval = OBJECT_TO_JSVAL(arr);
-
+#endif	
 			memmove(js_sock->read_buffer, 
 					js_sock->read_buffer+bytes_to_read, 
 					js_sock->buffer_pos-bytes_to_read);
@@ -256,8 +311,15 @@ static JSBool js_sock_read_bytes(JSContext * cx, JSObject * obj, uintN argc, jsv
 }
 
 
-static JSBool js_sock_wait_for_input(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+#if JS_VERSION >= 185
+static JSBool js_sock_wait_for_input(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_wait_for_input(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	int timeout=-1;
 
@@ -300,12 +362,22 @@ static JSBool js_sock_wait_for_input(JSContext * cx, JSObject * obj, uintN argc,
 			JS_ReportError(cx, "select failed code: %s", strerror(errno) );
 			return JS_FALSE;
 		}
+
+#if JS_VERSION >= 185
+		if ( FD_ISSET(js_sock->sock, &rfds)) {
+			// no data available...
+		    JS_SET_RVAL(cx, vp, JSVAL_TRUE);
+		} else {
+		    JS_SET_RVAL(cx, vp, JSVAL_FALSE);
+		}
+#else
 		if ( FD_ISSET(js_sock->sock, &rfds)) {
 			// no data available...
 			*rval = JSVAL_TRUE;
 		} else {
 			*rval = JSVAL_FALSE;
 		}
+#endif
 	}
 	return JS_TRUE;
 }
@@ -313,8 +385,15 @@ static JSBool js_sock_wait_for_input(JSContext * cx, JSObject * obj, uintN argc,
 
 #define LISTEN_BACKLOG 10
 
-static JSBool js_sock_bind(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+#if JS_VERSION >= 185
+static JSBool js_sock_bind(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_bind(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
@@ -372,8 +451,15 @@ static JSBool js_sock_bind(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 	return JS_TRUE;
 }
 
-static JSBool js_sock_accept(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+#if JS_VERSION >= 185
+static JSBool js_sock_accept(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_accept(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	sock_obj_t *client_sock;
 	struct sockaddr peer_addr;
@@ -392,12 +478,23 @@ static JSBool js_sock_accept(JSContext * cx, JSObject * obj, uintN argc, jsval *
 	client_sock->sock = cfd;
 	client_sock->state = connected;
 
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(newSock));
+#else
 	*rval = OBJECT_TO_JSVAL(newSock);
+#endif
 	return JS_TRUE;
 }
 
-static JSBool js_sock_poll(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+#if JS_VERSION >= 185
+static JSBool js_sock_poll(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_poll(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	int timeout=-1;
 
@@ -488,8 +585,16 @@ static JSBool js_sock_poll(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 
 /** read a websocket packet - framed by 0x00 ..[utf8 string data].. 0xff 
  */
-static JSBool js_sock_read_ws_packet(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+
+#if JS_VERSION >= 185
+static JSBool js_sock_read_ws_packet(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_read_ws_packet(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	int read_state=0;
 
@@ -504,7 +609,12 @@ static JSBool js_sock_read_ws_packet(JSContext * cx, JSObject * obj, uintN argc,
 	int can_run = 1;
 	unsigned char tempbuf[2];
 
+
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, BOOLEAN_TO_JSVAL(JS_FALSE));
+#else
 	*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
+#endif
 
 	js_sock->saveDepth = JS_SuspendRequest(cx);
 	while (can_run) {
@@ -542,7 +652,11 @@ static JSBool js_sock_read_ws_packet(JSContext * cx, JSObject * obj, uintN argc,
 
 	if (ret >=0) {
 		js_sock->read_buffer[total_length] = 0;
- 		*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer));
+#if JS_VERSION >= 185
+		JS_SET_RVAL(cx, vp, STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer)));
+#else
+		*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer));
+#endif
 	}
 
 	return JS_TRUE;
@@ -550,8 +664,16 @@ static JSBool js_sock_read_ws_packet(JSContext * cx, JSObject * obj, uintN argc,
 
 /** write a websocket packet. pass one string that will be framed by the ws packet header and footer (0x00, 0xff).
  */
-static JSBool js_sock_write_ws_packet(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+
+#if JS_VERSION >= 185
+static JSBool js_sock_write_ws_packet(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_write_ws_packet(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	if (js_sock == NULL) {
 		printf("Failed to find js object.\n");
@@ -559,7 +681,7 @@ static JSBool js_sock_write_ws_packet(JSContext * cx, JSObject * obj, uintN argc
 	}
 
 	if (argc == 1) {
-		char *buffer = JS_GetStringBytes(JS_ValueToString(cx, argv[0]));
+		char *buffer = JS_EncodeString(cx, JS_ValueToString(cx, argv[0]));
 		char frame[] = { 0x0, 0xff};
 		int ret, len = strlen(buffer);
 		js_sock->saveDepth = JS_SuspendRequest(cx);
@@ -582,8 +704,16 @@ static JSBool js_sock_write_ws_packet(JSContext * cx, JSObject * obj, uintN argc
 
 /** read a line.
  */
-static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+
+#if JS_VERSION >= 185
+static JSBool js_sock_read(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	int ret = 0;
 	size_t len = 1;
@@ -614,7 +744,11 @@ static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 			if (read_buffer > js_sock->read_buffer && read_buffer[-1]=='\r' ) {
 				read_buffer[-1]='\0';
 			}
+#if JS_VERSION >= 185
+			JS_SET_RVAL(cx, vp, STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer )));
+#else
 			*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer ));
+#endif
 
 			if (ret>0) {
 				memmove(js_sock->read_buffer, read_buffer+1, ret);
@@ -631,7 +765,11 @@ static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 	read_size = js_sock->buffer_size - js_sock->buffer_pos;
 	read_buffer[0] = '\0';
 
-	*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
+#if JS_VERSION >= 185
+	JS_SET_RVAL(cx, vp, BOOLEAN_TO_JSVAL(JS_FALSE ));
+#else
+	*rval = BOOLEAN_TO_JSVAL(JS_FALSE );
+#endif
 
 	js_sock->saveDepth = JS_SuspendRequest(cx);
 	while (can_run) {
@@ -670,7 +808,11 @@ static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 		if (read_buffer>js_sock->read_buffer && read_buffer[-1]=='\r' ) {
 			read_buffer[-1]='\0';
 		}
+#if JS_VERSION >= 185
+		JS_SET_RVAL(cx, vp, STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer + js_sock->buffer_pos )));
+#else
 		*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer + js_sock->buffer_pos ));
+#endif
 
 		if (ret>0) {
 			// some bytes have been left over...
@@ -685,8 +827,15 @@ static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 	return JS_TRUE;
 }
 
-static JSBool js_sock_close(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+#if JS_VERSION >= 185
+static JSBool js_sock_close(JSContext *cx, uintN argc, jsval *vp)
 {
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool js_sock_close(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) 
+{
+#endif
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
 	if (js_sock == NULL) {
 		printf( "Failed to find js object.\n");
@@ -729,14 +878,23 @@ static JSPropertySpec js_sock_props[] = {
 };
 
 
-static JSBool js_sock_getProperty(JSContext * cx, JSObject * obj, jsval id, jsval * vp)
+//extern JS_PUBLIC_ JS_PropertyStub(JSContext *cx, JSObject *obj, jsid id, jsval *vp);
+//static JSBool js_sock_getProperty(JSContext * cx, JSObject * obj, jsval id, jsval * vp)
+static JSBool js_sock_getProperty(JSContext * cx, JSObject * obj, jsid id, jsval * vp)
 {
 	JSBool res = JS_TRUE;
     sock_obj_t *js_sock = (sock_obj_t *)JS_GetPrivate(cx, obj);
 	char *name;
 	int param = 0;
 
-	name = JS_GetStringBytes(JS_ValueToString(cx, id));
+	if (JSID_IS_STRING(id)) {
+		name = JS_EncodeString(cx,JSID_TO_STRING(id));
+		fprintf(stderr,"***PROP GET CALLED FOR %s\n",name);
+	} else {
+		fprintf(stderr,"***PROP GET CALLED FOR UNKNOWN ID TYPE\n");
+		return JS_FALSE;
+	}
+//	name = JS_EncodeString(cx,JS_ValueToString(cx, id));
 	/* numbers are our props anything else is a method */
 	if (name[0] >= 48 && name[0] <= 57) {
 		param = atoi(name);
@@ -763,9 +921,15 @@ static JSBool js_sock_getProperty(JSContext * cx, JSObject * obj, jsval id, jsva
 
 JSClass js_sock_class = {
 	"Socket", JSCLASS_HAS_PRIVATE,
-	JS_PropertyStub, JS_PropertyStub, js_sock_getProperty, JS_PropertyStub,
-	JS_EnumerateStub, JS_ResolveStub, JS_ConvertStub, js_sock_destroy, NULL, NULL, NULL,
-	js_sock_construct
+	JS_PropertyStub, 
+	JS_PropertyStub, 
+	js_sock_getProperty, 
+	JS_StrictPropertyStub,
+	JS_EnumerateStub, 
+	JS_ResolveStub, 
+	JS_ConvertStub, 
+	js_sock_destroy, NULL, NULL, NULL,
+//	js_sock_construct
 };
 
 JS_BEGIN_EXTERN_C

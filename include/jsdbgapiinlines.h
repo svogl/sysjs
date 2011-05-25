@@ -1,4 +1,5 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=4 sw=4 et tw=78:
  *
  * ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -13,15 +14,15 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is Mozilla Communicator client code, released
- * March 31, 1998.
+ * The Original Code is SpiderMonkey code.
  *
  * The Initial Developer of the Original Code is
- * Netscape Communications Corporation.
- * Portions created by the Initial Developer are Copyright (C) 1998
+ * Mozilla Corporation.
+ * Portions created by the Initial Developer are Copyright (C) 2010
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
+ *   Jim Blandy <jimb@mozilla.com> (original author)
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either of the GNU General Public License Version 2 or later (the "GPL"),
@@ -37,22 +38,31 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-/*
-	Error messages for JSShell. See js.msg for format.
-*/
+#ifndef jsdbgapiinlines_h___
+#define jsdbgapiinlines_h___
 
-MSG_DEF(JSSMSG_NOT_AN_ERROR,             0, 0, JSEXN_NONE, "<Error #0 is reserved>")
-MSG_DEF(JSSMSG_CANT_OPEN,                1, 2, JSEXN_NONE, "can't open {0}: {1}") 
-MSG_DEF(JSSMSG_TRAP_USAGE,               2, 0, JSEXN_NONE, "usage: trap [fun] [pc] expr") 
-MSG_DEF(JSSMSG_LINE2PC_USAGE,            3, 0, JSEXN_NONE, "usage: line2pc [fun] line") 
-MSG_DEF(JSSMSG_FILE_SCRIPTS_ONLY,        4, 0, JSEXN_NONE, "only works on JS scripts read from files") 
-MSG_DEF(JSSMSG_UNEXPECTED_EOF,           5, 1, JSEXN_NONE, "unexpected EOF in {0}") 
-MSG_DEF(JSSMSG_DOEXP_USAGE,              6, 0, JSEXN_NONE, "usage: doexp obj id") 
-MSG_DEF(JSSMSG_SCRIPTS_ONLY,             7, 0, JSEXN_NONE, "only works on scripts") 
-MSG_DEF(JSSMSG_NOT_ENOUGH_ARGS,          8, 1, JSEXN_NONE, "{0}: not enough arguments")
-MSG_DEF(JSSMSG_TOO_MANY_ARGS,            9, 1, JSEXN_NONE, "{0}: too many arguments")
-MSG_DEF(JSSMSG_ASSERT_EQ_FAILED,        10, 2, JSEXN_NONE, "Assertion failed: got {0}, expected {1}")
-MSG_DEF(JSSMSG_ASSERT_EQ_FAILED_MSG,    11, 3, JSEXN_NONE, "Assertion failed: got {0}, expected {1}: {2}")
-MSG_DEF(JSSMSG_INVALID_ARGS,            12, 1, JSEXN_NONE, "{0}: invalid arguments")
-MSG_DEF(JSSMSG_ASSERT_JIT_FAILED,       13, 0, JSEXN_NONE, "unexpected failure to JIT")
-MSG_DEF(JSSMSG_BAD_ALIGNMENT,           14, 0, JSEXN_NONE, "serialized data must be 8-byte-aligned")
+#include "jsdbgapi.h"
+#include "jscntxt.h"
+
+#if defined(JS_HAS_OBJ_WATCHPOINT) && defined(__cplusplus)
+
+extern const js::Shape *
+js_SlowPathUpdateWatchpointsForShape(JSContext *cx, JSObject *obj, const js::Shape *newShape);
+
+/*
+ * Update any watchpoints on |obj| on |newShape->id| to use |newShape|. Property-manipulating
+ * functions must call this any time it takes on a new shape to represent a potentially
+ * watched property, or when it mutates a shape's attributes/setter/getter.
+ */
+static inline const js::Shape *
+js_UpdateWatchpointsForShape(JSContext *cx, JSObject *obj, const js::Shape *newShape)
+{
+    if (JS_CLIST_IS_EMPTY(&cx->runtime->watchPointList))
+        return newShape;
+
+    return js_SlowPathUpdateWatchpointsForShape(cx, obj, newShape);
+}
+
+#endif /* JS_HAS_OBJ_WATCHPOINT && __cplusplus */
+
+#endif /* jsdbgapiinlines_h__ */

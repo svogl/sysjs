@@ -53,7 +53,16 @@ static SysUtilData* SysUtilDataPtr;
 JSBool _SysUtilDefineProps(JSContext *cx, JSObject *obj);
 
 /** SysUtil Constructor */
-static JSBool SysUtilConstructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+
+#if JS_VERSION >= 185
+static JSBool SysUtilConstructor(JSContext *cx, uintN argc, jsval *vp)
+{
+    JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool SysUtilConstructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+#endif
     if (argc == 0) {
         SysUtilData* dta = NULL;
 
@@ -79,7 +88,7 @@ static void SysUtilDestructor(JSContext *cx, JSObject *obj) {
 
 ///// SysUtil Function Table
 static JSFunctionSpec _SysUtilFunctionSpec[] = {
-    { 0, 0, 0, 0, 0}
+	JS_FS_END
 };
 
 /*************************************************************************************************/
@@ -87,10 +96,14 @@ static JSFunctionSpec _SysUtilFunctionSpec[] = {
 
 static JSClass SysUtil_jsClass = {
     "SysUtil", JSCLASS_HAS_PRIVATE,
-    JS_PropertyStub, JS_PropertyStub, // add/del prop
-    JS_PropertyStub, JS_PropertyStub, // get/set prop
-    JS_EnumerateStub, JS_ResolveStub, // enum / resolve
-    JS_ConvertStub, SysUtilDestructor, // convert / finalize
+    JS_PropertyStub, 
+	JS_PropertyStub, // add/del prop
+    JS_PropertyStub, 
+	JS_StrictPropertyStub, // get/set prop
+    JS_EnumerateStub, 
+	JS_ResolveStub, // enum / resolve
+    JS_ConvertStub, 
+	SysUtilDestructor, // convert / finalize
     0, 0, 0, 0,
     0, 0, 0, 0
 };
@@ -99,58 +112,110 @@ static JSClass SysUtil_jsClass = {
 /** this function maps the getenv()-call. if an environment-variable is found, a 
  * string is returned, null otherwise 
  */
-static JSBool SysUtil_s_getenv(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
-
+#if JS_VERSION >= 185
+static JSBool SysUtil_s_getenv(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool SysUtil_s_getenv(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+#endif
     fail_if_not(cx, (argc == 1), "which env do you wnt to read?\n");
     fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a string (env.var)!");
     JSString* varStr = JSVAL_TO_STRING(argv[0]);
-    char* var = JS_GetStringBytes(varStr);
+    char* var;
+    if ((var = JS_EncodeString(cx, varStr)) == NULL) {
+        JS_ReportError(cx, "invalid argument");
+        return JS_FALSE;
+    }
 
     char *val = getenv(var);
 
     if (val!=NULL) {
 	    JSString* valStr=NULL;
 	    valStr = JS_NewStringCopyZ(cx, val);
+#if JS_VERSION >= 185
+	    JS_SET_RVAL(cx, vp, STRING_TO_JSVAL(valStr));
+#else
 	    *rval = STRING_TO_JSVAL(valStr);
+#endif
     } else {
 	    // no match
-	    *rval = JSVAL_NULL;
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, JSVAL_NULL);
+#else
+    *rval = JSVAL_NULL;
+#endif
     }
     return JS_TRUE;
 }
 
-static JSBool SysUtil_s_getpid(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+#if JS_VERSION >= 185
+static JSBool SysUtil_s_getpid(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    //jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool SysUtil_s_getpid(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+#endif
 
     fail_if_not(cx, (argc == 0), "no arguments, please.\n");
 	pid_t p = getpid();
 
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, INT_TO_JSVAL(p));
+#else
     *rval = INT_TO_JSVAL(p);
+#endif
 
     return JS_TRUE;
 }
 
-static JSBool SysUtil_s_system(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+#if JS_VERSION >= 185
+static JSBool SysUtil_s_system(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool SysUtil_s_system(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+#endif
 
     fail_if_not(cx, (argc == 1), "pass the cmd you want to run!\n");
     fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a string (url)!");
     JSString* cmdStr = JSVAL_TO_STRING(argv[0]);
-    char* cmd = JS_GetStringBytes(cmdStr);
-
+    char* cmd = JS_EncodeString(cx, cmdStr);
 	int ret = system(cmd);
 
+
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, INT_TO_JSVAL(ret));
+#else
 	*rval = INT_TO_JSVAL(ret);
+#endif
 
     return JS_TRUE;
 }
 
-static JSBool SysUtil_s_open(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+#if JS_VERSION >= 185
+static JSBool SysUtil_s_open(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool SysUtil_s_open(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+#endif
 
     fail_if_not(cx, (argc == 2), "pass the (file,flags)");
     fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg0 must be a string (path)!");
     fail_if_not(cx, JSVAL_IS_INT(argv[1]), "arg1 must be a int (flags)!");
 
     JSString* cmdStr = JSVAL_TO_STRING(argv[0]);
-    char* file = JS_GetStringBytes(cmdStr);
+    char* file;
+	file = JS_EncodeString(cx, cmdStr);
 	jsint flags = JSVAL_TO_INT(argv[1]);
 
 	int ret = open(file, flags, 0644);
@@ -160,12 +225,24 @@ static JSBool SysUtil_s_open(JSContext *cx, JSObject *obj, uintN argc, jsval *ar
 		return JS_FALSE;
 	}
 
+
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, INT_TO_JSVAL(ret));
+#else
 	*rval = INT_TO_JSVAL(ret);
+#endif
     return JS_TRUE;
 }
 
-static JSBool SysUtil_s_close(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
-
+#if JS_VERSION >= 185
+static JSBool SysUtil_s_close(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool SysUtil_s_close(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+#endif
     fail_if_not(cx, (argc == 1), "pass the fd you want to close!\n");
     fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a int!");
 
@@ -173,18 +250,30 @@ static JSBool SysUtil_s_close(JSContext *cx, JSObject *obj, uintN argc, jsval *a
 
 	int ret = close(fd);
 
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, INT_TO_JSVAL(ret));
+#else
 	*rval = INT_TO_JSVAL(ret);
-
+#endif
     return JS_TRUE;
 }
 
 
-static JSBool SysUtil_s_unlink(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+#if JS_VERSION >= 185
+static JSBool SysUtil_s_unlink(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool SysUtil_s_unlink(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+#endif
 
     fail_if_not(cx, (argc == 1), "pass the file to delete!\n");
     fail_if_not(cx, JSVAL_IS_STRING(argv[0]), "arg must be a string!");
     JSString* cmdStr = JSVAL_TO_STRING(argv[0]);
-    char* file = JS_GetStringBytes(cmdStr);
+    char* file;
+	file = JS_EncodeString(cx, cmdStr);
 
 	int ret = unlink(file);
 
@@ -193,18 +282,29 @@ static JSBool SysUtil_s_unlink(JSContext *cx, JSObject *obj, uintN argc, jsval *
 		return JS_FALSE;
 	}
 
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, INT_TO_JSVAL(ret));
+#else
 	*rval = INT_TO_JSVAL(ret);
+#endif
     return JS_TRUE;
 }
 
-static JSBool SysUtil_s_rename(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
-
+#if JS_VERSION >= 185
+static JSBool SysUtil_s_rename(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool SysUtil_s_rename(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+#endif
     fail_if_not(cx, (argc == 2), "pass the cmd you want to run!\n");
     fail_if_not(cx, JSVAL_IS_STRING(argv[0]) && JSVAL_IS_STRING(argv[1]), "args must be string!");
     JSString* fromStr = JSVAL_TO_STRING(argv[0]);
     JSString* toStr = JSVAL_TO_STRING(argv[1]);
-    char* from = JS_GetStringBytes(fromStr);
-    char* to = JS_GetStringBytes(toStr);
+    char* from = JS_EncodeString(cx, fromStr);
+    char* to = JS_EncodeString(cx, toStr);
 
 	int ret = rename(from, to);
 
@@ -213,13 +313,25 @@ static JSBool SysUtil_s_rename(JSContext *cx, JSObject *obj, uintN argc, jsval *
 		return JS_FALSE;
 	}
 
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, INT_TO_JSVAL(ret));
+#else
 	*rval = INT_TO_JSVAL(ret);
-    return JS_TRUE;
+#endif
+    return JS_TRUE;    return JS_TRUE;
 }
 
 
-static JSBool SysUtil_s_sleep(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
 
+#if JS_VERSION >= 185
+static JSBool SysUtil_s_sleep(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
+static JSBool SysUtil_s_sleep(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+#endif
     fail_if_not(cx, (argc == 1), "pass the milliseconds you want to sleep!\n");
     fail_if_not(cx, JSVAL_IS_INT(argv[0]), "arg must be a int!");
 
@@ -227,9 +339,12 @@ static JSBool SysUtil_s_sleep(JSContext *cx, JSObject *obj, uintN argc, jsval *a
 
 	int ret = usleep(ms*1000);
 
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, INT_TO_JSVAL(ret));
+#else
 	*rval = INT_TO_JSVAL(ret);
-
-    return JS_TRUE;
+#endif
+    return JS_TRUE;    return JS_TRUE;
 }
 
 
@@ -381,19 +496,20 @@ JSBool _SysUtilDefineProps(JSContext *cx, JSObject *obj)
 	INT_PROP("S_IXGRP", S_IXGRP);
 	INT_PROP("S_IXOTH", S_IXOTH);
 	INT_PROP("S_IXUSR", S_IXUSR);
+	return JS_TRUE;
 }
 
 
 static JSFunctionSpec _SysUtilStaticFunctionSpec[] = {
-    { "system", SysUtil_s_system, 0, 0, 0},
-    { "getenv", SysUtil_s_getenv, 0, 0, 0},
-    { "getpid", SysUtil_s_getpid, 0, 0, 0},
-    { "open", SysUtil_s_open, 0, 0, 0},
-    { "close", SysUtil_s_close, 0, 0, 0},
-    { "unlink", SysUtil_s_unlink, 0, 0, 0},
-    { "rename", SysUtil_s_rename, 0, 0, 0},
-    { "sleep", SysUtil_s_sleep, 0, 0, 0},
-    { 0, 0, 0, 0, 0}
+    JS_FS( "system",   SysUtil_s_system,   1, 0 ),
+    JS_FS( "getenv",   SysUtil_s_getenv,   1, 0 ),
+    JS_FS( "getpid",   SysUtil_s_getpid,   1, 0 ),
+    JS_FS( "open",   SysUtil_s_open,   1, 0 ),
+    JS_FS( "close",   SysUtil_s_close,   1, 0 ),
+    JS_FS( "unlink",   SysUtil_s_unlink,   1, 0 ),
+    JS_FS( "rename",   SysUtil_s_rename,   1, 0 ),
+    JS_FS( "sleep",   SysUtil_s_sleep,   1, 0 ),
+	JS_FS_END
 };
 
 
@@ -404,6 +520,7 @@ JS_BEGIN_EXTERN_C
 JSObject* SysUtilInit(JSContext *cx, JSObject *obj) {
     if (obj == NULL)
         obj = JS_GetGlobalObject(cx);
+
 
     JSObject* o = JS_InitClass(cx, obj, NULL,
             &SysUtil_jsClass,

@@ -13,12 +13,11 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is Mozilla Communicator client code, released
- * March 31, 1998.
+ * The Original Code is the Mozilla SpiderMonkey JaegerMonkey implementation
  *
  * The Initial Developer of the Original Code is
- * Netscape Communications Corporation.
- * Portions created by the Initial Developer are Copyright (C) 1998
+ *   Mozilla Foundation
+ * Portions created by the Initial Developer are Copyright (C) 2002-2010
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
@@ -37,22 +36,22 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-/*
-	Error messages for JSShell. See js.msg for format.
-*/
+#include "jsautooplen.h"
 
-MSG_DEF(JSSMSG_NOT_AN_ERROR,             0, 0, JSEXN_NONE, "<Error #0 is reserved>")
-MSG_DEF(JSSMSG_CANT_OPEN,                1, 2, JSEXN_NONE, "can't open {0}: {1}") 
-MSG_DEF(JSSMSG_TRAP_USAGE,               2, 0, JSEXN_NONE, "usage: trap [fun] [pc] expr") 
-MSG_DEF(JSSMSG_LINE2PC_USAGE,            3, 0, JSEXN_NONE, "usage: line2pc [fun] line") 
-MSG_DEF(JSSMSG_FILE_SCRIPTS_ONLY,        4, 0, JSEXN_NONE, "only works on JS scripts read from files") 
-MSG_DEF(JSSMSG_UNEXPECTED_EOF,           5, 1, JSEXN_NONE, "unexpected EOF in {0}") 
-MSG_DEF(JSSMSG_DOEXP_USAGE,              6, 0, JSEXN_NONE, "usage: doexp obj id") 
-MSG_DEF(JSSMSG_SCRIPTS_ONLY,             7, 0, JSEXN_NONE, "only works on scripts") 
-MSG_DEF(JSSMSG_NOT_ENOUGH_ARGS,          8, 1, JSEXN_NONE, "{0}: not enough arguments")
-MSG_DEF(JSSMSG_TOO_MANY_ARGS,            9, 1, JSEXN_NONE, "{0}: too many arguments")
-MSG_DEF(JSSMSG_ASSERT_EQ_FAILED,        10, 2, JSEXN_NONE, "Assertion failed: got {0}, expected {1}")
-MSG_DEF(JSSMSG_ASSERT_EQ_FAILED_MSG,    11, 3, JSEXN_NONE, "Assertion failed: got {0}, expected {1}: {2}")
-MSG_DEF(JSSMSG_INVALID_ARGS,            12, 1, JSEXN_NONE, "{0}: invalid arguments")
-MSG_DEF(JSSMSG_ASSERT_JIT_FAILED,       13, 0, JSEXN_NONE, "unexpected failure to JIT")
-MSG_DEF(JSSMSG_BAD_ALIGNMENT,           14, 0, JSEXN_NONE, "serialized data must be 8-byte-aligned")
+namespace js {
+
+/* 
+ * Warning: this does not skip JSOP_RESETBASE* or JSOP_INDEXBASE* ops, so it is
+ * useful only when checking for optimization opportunities.
+ */
+JS_ALWAYS_INLINE jsbytecode *
+AdvanceOverBlockchainOp(jsbytecode *pc)
+{
+    if (*pc == JSOP_NULLBLOCKCHAIN)
+        return pc + JSOP_NULLBLOCKCHAIN_LENGTH;
+    if (*pc == JSOP_BLOCKCHAIN)
+        return pc + JSOP_BLOCKCHAIN_LENGTH;
+    return pc;
+}
+
+}

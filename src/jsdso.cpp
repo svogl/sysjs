@@ -174,12 +174,19 @@ JS_DSOUnload(JSContext *cx, int id)
 }
 
 /* global JavaScript language DSO object method: id = DSO.load("filename.so") */
+#if JS_VERSION >= 185
+static JSBool dso_load(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
 static JSBool dso_load(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
+#endif
     JSString *filename;
     char *c_filename;
     int id;
-
+ 
     /* usage sanity checks */
     if (argc == 0) {
         JS_ReportError(cx, "usage: id = DSO.load(filename)");
@@ -191,30 +198,48 @@ static JSBool dso_load(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, js
     }
 
     /* determine filename */
-    if ((filename = js_ValueToString(cx, argv[0])) == NULL) {
-        JS_ReportError(cx, "invalid argument");
-        return JS_FALSE;
-    }
-    if ((c_filename = JS_GetStringBytes(filename)) == NULL) {
+    if ((filename = JS_ValueToString(cx, argv[0])) == NULL) {
         JS_ReportError(cx, "invalid argument");
         return JS_FALSE;
     }
 
+    printf("STRINGS IN UTF8? %d\n", JS_CStringsAreUTF8());
+    JS_SetCStringsAreUTF8();
+/*
+    if ((c_filename = JS_GetStringBytes(filename)) == NULL) {
+        JS_ReportError(cx, "invalid argument");
+        return JS_FALSE;
+    }
+*/
+    if ((c_filename = JS_EncodeString(cx, filename)) == NULL) {
+        JS_ReportError(cx, "invalid argument");
+        return JS_FALSE;
+    }
+    
     /* load DSO */
     if (!JS_DSOLoad(cx, &id, c_filename))
         return JS_FALSE;
 
     /* return DSO handle id */
+#if JS_VERSION >= 185
+    JS_SET_RVAL(cx, vp, INT_TO_JSVAL(id));
+#else
     *rval = INT_TO_JSVAL(id);
-
+#endif
     return JS_TRUE;
 }
 
 /* global JavaScript language DSO object method: DSO.unload(id) */
+#if JS_VERSION >= 185
+static JSBool dso_unload(JSContext *cx, uintN argc, jsval *vp)
+{
+    //JSObject* obj =JS_THIS_OBJECT(cx, vp);
+    jsval* argv = JS_ARGV(cx, vp);
+#else
 static JSBool dso_unload(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
+#endif
     int id;
-    JSBool rc;
 
     /* usage sanity checks */
     if (argc == 0) {
@@ -238,9 +263,9 @@ static JSBool dso_unload(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, 
 
 /* JavaScript DSO class method definitions */
 static JSFunctionSpec dso_methods[] = {
-    { "load",   dso_load,   1, 0, 0 },
-    { "unload", dso_unload, 1, 0, 0 },
-    { NULL,     NULL,       0, 0, 0 }
+    JS_FS( "load",   dso_load,   1, 0 ),
+    JS_FS( "unload", dso_unload, 1, 0 ),
+    JS_FS_END
 };
 
 /* JavaScript DSO class definition */
@@ -250,12 +275,12 @@ static JSClass dso_class = {
     JS_PropertyStub,
     JS_PropertyStub,
     JS_PropertyStub,
-    JS_PropertyStub,
+    JS_StrictPropertyStub,
     JS_EnumerateStub,
     JS_ResolveStub,
     JS_ConvertStub,
     JS_FinalizeStub,
-    JSCLASS_NO_OPTIONAL_MEMBERS
+ //   JSCLASS_NO_OPTIONAL_MEMBERS
 };
 
 /* JavaScript DSO class global initializer */

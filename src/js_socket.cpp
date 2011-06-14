@@ -346,9 +346,13 @@ static JSBool js_sock_bind(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 		return JS_FALSE;
 	}
 	for (rp = result; rp != NULL; rp = rp->ai_next) {
+		char one;
 		sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
 		if (sfd == -1)
 			continue;
+
+		setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+//		setsockopt(sfd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one));
 
 		if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
 			break;                  /* Success */

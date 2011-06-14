@@ -232,6 +232,34 @@ static JSBool SysUtil_s_sleep(JSContext *cx, JSObject *obj, uintN argc, jsval *a
     return JS_TRUE;
 }
 
+static JSBool SysUtil_s_a2f(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+
+    fail_if_not(cx, (argc == 4), "pass the milliseconds you want to sleep!\n");
+    fail_if_not(cx, JSVAL_IS_INT(argv[0]), "arg must be a int!");
+    fail_if_not(cx, JSVAL_IS_INT(argv[1]), "arg must be a int!");
+    fail_if_not(cx, JSVAL_IS_INT(argv[2]), "arg must be a int!");
+    fail_if_not(cx, JSVAL_IS_INT(argv[3]), "arg must be a int!");
+
+	jsint a0 = JSVAL_TO_INT(argv[0]);
+	jsint a1 = JSVAL_TO_INT(argv[1]);
+	jsint a2 = JSVAL_TO_INT(argv[2]);
+	jsint a3 = JSVAL_TO_INT(argv[3]);
+
+	float f;
+	unsigned char*c = (unsigned char*)&f;
+	c[3] = (unsigned char)(a0);
+	c[2] = (unsigned char)(a1);
+	c[1] = (unsigned char)(a2);
+	c[0] = (unsigned char)(a3);
+
+//printf("A2F: COULD THIS BE %g %g %g?\n",f, (double)f, (jsdouble)f);
+	jsdouble* d = JS_NewDouble(cx, f);
+printf("A2F: COULD THIS BE %g?\n",*d);
+	*rval = DOUBLE_TO_JSVAL(d);
+
+    return JS_TRUE;
+}
+
 
 JSBool _SysUtilDefineProps(JSContext *cx, JSObject *obj)
 {
@@ -393,6 +421,7 @@ static JSFunctionSpec _SysUtilStaticFunctionSpec[] = {
     { "unlink", SysUtil_s_unlink, 0, 0, 0},
     { "rename", SysUtil_s_rename, 0, 0, 0},
     { "sleep", SysUtil_s_sleep, 0, 0, 0},
+    { "array2float", SysUtil_s_a2f, 0, 0, 0},
     { 0, 0, 0, 0, 0}
 };
 

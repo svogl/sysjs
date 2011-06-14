@@ -151,8 +151,8 @@ static JSBool js_sock_connect(JSContext * cx, JSObject * obj, uintN argc, jsval 
 		}
 
 		if (rp == NULL) {               /* No address succeeded */
-			fprintf(stderr, "Could not connect - no address found.\n");
-			return JS_TRUE;
+			JS_ReportError(cx, "Could not connect - no address found.\n");
+			return JS_FALSE;
 		}
 		js_sock->sock = sfd;
 		js_sock->state = connected;
@@ -453,8 +453,8 @@ static JSBool js_sock_poll(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 		}
 		sock_obj_t *sock_data = (sock_obj_t *)JS_GetPrivate(cx, theSock);
 		if (sock_data->sock==-1) {
-			fprintf(stderr, "SOCKET idx %d CLOSED - IGNORING!\n",i);
-			len--; 
+			fprintf(stderr, "socket idx %d closed - IGNORING!\n",i);
+			len--;
 			continue;
 		}
 		fds[i].fd = sock_data->sock;
@@ -472,12 +472,14 @@ static JSBool js_sock_poll(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 			f_argv = INT_TO_JSVAL(fds[i].revents);
 			ret = JS_CallFunctionName(cx, sockArray[i], "error", 1, &f_argv, &f_ret);
 			if (ret == JS_FALSE) {
-				return ret;
+				JS_ReportError(cx, "function call returned false!", i);
+				//return ret;
 			}
 		}
 		if ( fds[i].revents & POLLIN ) {
 			ret = JS_CallFunctionName(cx, sockArray[i], "data", 0, &f_argv, &f_ret);
 			if (ret == JS_FALSE) {
+				JS_ReportError(cx, "function call II returned false!", i);
 				return ret;
 			}
 		}

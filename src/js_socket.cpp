@@ -352,7 +352,6 @@ static JSBool js_sock_bind(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 			continue;
 
 		setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-//		setsockopt(sfd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one));
 
 		if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
 			break;                  /* Success */
@@ -554,6 +553,84 @@ static JSBool js_sock_read_ws_packet(JSContext * cx, JSObject * obj, uintN argc,
 	return JS_TRUE;
 }
 
+
+/** read a packet from the Eaton ECI - framed by 0x5a ..[len byte, +packet data].. 0xa5 
+ */
+static JSBool js_sock_read_eaton_packet(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+{
+	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
+	int read_state=0;
+
+	if (js_sock == NULL) {
+		printf( "Failed to find js object.\n");
+		return JS_FALSE;
+	}
+
+	int ret = 0;
+	size_t len = 1;
+	size_t total_length = 0;
+	int can_run = 1;
+	unsigned char packetbuf[32];
+	unsigned char trailer[1];
+
+	*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
+
+	js_sock->saveDepth = JS_SuspendRequest(cx);
+
+	// wait for header byte
+	while (can_run) {
+		ret = read(js_sock->sock, packetbuf, 1);
+		if (ret==-1) {
+			JS_ReportError(cx, "read failed: %s", strerror(errno) );
+			return JS_FALSE;
+		}
+		if (ret == 0)
+			break;
+		if (packetbuf[0]==0x5a) {
+			break;
+		}
+	}
+	// get length
+	ret = read(js_sock->sock, packetbuf, 1);
+	if (ret==-1) {
+		JS_ReportError(cx, "read failed: %s", strerror(errno) );
+		return JS_FALSE;
+	}
+	if (packetbuf[0]>32) {
+		JS_ReportError(cx, "buffer too small - need %d bytes!", packetbuf[0] );
+		return JS_FALSE;	
+	}
+	ret = read(js_sock->sock, packetbuf+1, packetbuf[0]-1);
+	if (ret==-1) {
+		JS_ReportError(cx, "read failed: %s", strerror(errno) );
+		return JS_FALSE;
+	}
+
+	ret = read(js_sock->sock, trailer, 1);
+	if (ret==-1) {
+		JS_ReportError(cx, "trailer byte read failed: %s", strerror(errno) );
+		return JS_FALSE;
+	}
+	if (trailer[0] != 0xa5) {
+		JS_ReportError(cx, "illegal trailer byte: %d 0x%02x", trailer[0], trailer[0] );
+		return JS_FALSE;
+	}
+
+	{
+		jsval vec[ packetbuf[0] ];
+		for (int i=0;i< packetbuf[0];i++) {
+			vec[i] = INT_TO_JSVAL(packetbuf[i]);
+		}
+		JSObject* arr = JS_NewArrayObject(cx, packetbuf[0], vec);
+		*rval = OBJECT_TO_JSVAL(arr);
+	}
+	JS_ResumeRequest(cx, js_sock->saveDepth);
+
+	return JS_TRUE;
+}
+
+
+
 /** write a websocket packet. pass one string that will be framed by the ws packet header and footer (0x00, 0xff).
  */
 static JSBool js_sock_write_ws_packet(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
@@ -715,6 +792,7 @@ static JSFunctionSpec js_sock_methods[] = {
 	{"read", js_sock_read, 1},
 	{"read_ws_packet", js_sock_read_ws_packet, 1},
 	{"write_ws_packet", js_sock_write_ws_packet, 1},
+	{"readEatonPacket", js_sock_read_eaton_packet, 1},
 	{"waitForInput", js_sock_wait_for_input, 1},
 	{"poll", js_sock_poll, 1},
 	{"bind", js_sock_bind, 1},

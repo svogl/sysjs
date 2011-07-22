@@ -66,8 +66,8 @@ static JSBool js_sock_construct(JSContext * cx, JSObject * obj, uintN argc, jsva
 
 	js_sock_obj = (sock_obj_t*)JS_malloc( cx, sizeof(sock_obj_t));
 
-	js_sock_obj->read_buffer = (char*)JS_malloc(cx, 1024);
-	js_sock_obj->buffer_size = 1024;
+	js_sock_obj->read_buffer = (char*)JS_malloc(cx, 4*1024); // TODO: There is a realloc-related bug in sock_read when enlargin buffers - find and fix it!
+	js_sock_obj->buffer_size = 4*1024;
 	js_sock_obj->buffer_pos = 0;
 	js_sock_obj->sock = -1;
 	js_sock_obj->state = disconnected;

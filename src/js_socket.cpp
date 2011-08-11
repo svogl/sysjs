@@ -37,6 +37,8 @@
 #include <netdb.h>
 #include <string.h>
 #include <poll.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include <jsapi.h>
 
@@ -165,6 +167,55 @@ static JSBool js_sock_connect(JSContext * cx, JSObject * obj, uintN argc, jsval 
 	return JS_TRUE;
 }
 
+
+static JSBool js_sock_setbaud(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+{
+	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
+	int ret=0;
+    struct termios oldtio,newtio;
+
+	if (js_sock == NULL) {
+		printf("Failed to find js object.\n");
+		return JS_FALSE;
+	}
+	if (!js_sock->state == connected) {
+		JS_ReportError(cx, "Socket closed!");
+		return JS_FALSE;
+	}
+	tcgetattr(js_sock->sock,&oldtio); /* save current serial port settings */
+	bzero(&newtio, sizeof(newtio)); /* clear struct for new port settings */
+    newtio.c_lflag &= ~(ICANON | ECHO | ISIG);
+
+	/* Creat new settings for the serial port
+
+      BAUDRATE: Set bps rate. You could also use cfsetispeed and cfsetospeed.
+      CS8     : 8n1 (8bit,no parity,1 stopbit)
+      CLOCAL  : local connection, no modem contol
+      CREAD   : enable receiving characters
+    */
+
+	#define BAUDRATE B9600
+	newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    cfsetspeed(&newtio, BAUDRATE);
+  //  cfmakeraw(&newtio);
+            /*
+     Raw input.
+    */
+    newtio.c_iflag = 0;
+
+    /*
+     Raw output.
+    */
+    newtio.c_oflag = 0;
+
+    /*
+     now clean the modem line and activate the settings for the port
+    */
+    ret = tcflush(js_sock->sock, TCIFLUSH);
+    ret = tcsetattr(js_sock->sock, TCSANOW,&newtio);
+	return JS_TRUE;
+}
+
 static JSBool js_sock_send(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
 {
 	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
@@ -244,11 +295,13 @@ static JSBool js_sock_read_bytes(JSContext * cx, JSObject * obj, uintN argc, jsv
 
 			*rval = OBJECT_TO_JSVAL(arr);
 
-			memmove(js_sock->read_buffer, 
-					js_sock->read_buffer+bytes_to_read, 
-					js_sock->buffer_pos-bytes_to_read);
+			if (js_sock->buffer_pos>0) {
+				memmove(js_sock->read_buffer, 
+						js_sock->read_buffer+bytes_to_read, 
+						js_sock->buffer_pos-bytes_to_read);
 
-			js_sock->buffer_pos -=bytes_to_read;
+				js_sock->buffer_pos -=bytes_to_read;
+			}
 		}
 	}
 
@@ -552,7 +605,6 @@ static JSBool js_sock_read_ws_packet(JSContext * cx, JSObject * obj, uintN argc,
 
 	return JS_TRUE;
 }
-
 
 /** read a packet from the Eaton ECI - framed by 0x5a ..[len byte, +packet data].. 0xa5 
  */

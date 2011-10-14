@@ -252,9 +252,7 @@ static JSBool SysUtil_s_a2f(JSContext *cx, JSObject *obj, uintN argc, jsval *arg
 	c[1] = (unsigned char)(a2);
 	c[0] = (unsigned char)(a3);
 
-//printf("A2F: COULD THIS BE %g %g %g?\n",f, (double)f, (jsdouble)f);
 	jsdouble* d = JS_NewDouble(cx, f);
-printf("A2F: COULD THIS BE %g?\n",*d);
 	*rval = DOUBLE_TO_JSVAL(d);
 
     return JS_TRUE;

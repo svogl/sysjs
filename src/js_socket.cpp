@@ -68,8 +68,8 @@ static JSBool js_sock_construct(JSContext * cx, JSObject * obj, uintN argc, jsva
 
 	js_sock_obj = (sock_obj_t*)JS_malloc( cx, sizeof(sock_obj_t));
 
-	js_sock_obj->read_buffer = (char*)JS_malloc(cx, 1024);
-	js_sock_obj->buffer_size = 1024;
+	js_sock_obj->read_buffer = (char*)JS_malloc(cx, 32*1024); // TODO: There is a realloc-related bug in sock_read when enlargin buffers - find and fix it!
+	js_sock_obj->buffer_size = 1*1024;
 	js_sock_obj->buffer_pos = 0;
 	js_sock_obj->sock = -1;
 	js_sock_obj->state = disconnected;
@@ -99,6 +99,46 @@ static void js_sock_destroy(JSContext * cx, JSObject * obj)
 
 static void getInfo(void)
 {
+}
+
+static JSBool js_sock_set_timeout(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
+{
+	sock_obj_t *js_sock = (sock_obj_t*)JS_GetPrivate(cx, obj);
+	struct timeval sto;
+	struct timeval rto;
+	int ts, tr, ret;
+	if (js_sock == NULL) {
+		printf("Failed to find js object.\n");
+		return JS_FALSE;
+	}
+	if (!js_sock->state == connected) {
+		JS_ReportError(cx, "Socket closed!");
+		return JS_FALSE;
+	}
+	if (argc!=2) {
+		JS_ReportError(cx, "provide send and receive timeouts (ms)!");
+		return JS_FALSE;
+	}
+	ts = JSVAL_TO_INT(argv[0]);
+	tr = JSVAL_TO_INT(argv[1]);
+
+	sto.tv_sec = ts/1000;
+	ts -= sto.tv_sec*1000;
+	sto.tv_usec = ts*1000;
+
+	rto.tv_sec = tr/1000;
+	tr -= rto.tv_sec*1000;
+	rto.tv_usec = tr*1000;
+
+	fprintf(stderr, "setting sock timeouts to SND %d.%d   RCV %d.%d\n",sto.tv_sec,sto.tv_usec,rto.tv_sec,rto.tv_usec );
+
+	ret = setsockopt(js_sock->sock, SOL_SOCKET, SO_SNDTIMEO, &sto, sizeof(sto));
+	ret |= setsockopt(js_sock->sock, SOL_SOCKET, SO_RCVTIMEO, &rto, sizeof(rto));
+	if (ret==-1) {
+		JS_ReportError(cx, "SetSock error %d: %s", errno, strerror(errno) );
+		return JS_FALSE;
+	}
+	return JS_TRUE;
 }
 
 static JSBool js_sock_connect(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
@@ -302,11 +342,13 @@ static JSBool js_sock_read_bytes(JSContext * cx, JSObject * obj, uintN argc, jsv
 
 			*rval = OBJECT_TO_JSVAL(arr);
 
-			memmove(js_sock->read_buffer, 
-					js_sock->read_buffer+bytes_to_read, 
-					js_sock->buffer_pos-bytes_to_read);
+			if (js_sock->buffer_pos>0) {
+				memmove(js_sock->read_buffer, 
+						js_sock->read_buffer+bytes_to_read, 
+						js_sock->buffer_pos-bytes_to_read);
 
-			js_sock->buffer_pos -=bytes_to_read;
+				js_sock->buffer_pos -=bytes_to_read;
+			}
 		}
 	}
 
@@ -611,7 +653,6 @@ static JSBool js_sock_read_ws_packet(JSContext * cx, JSObject * obj, uintN argc,
 	return JS_TRUE;
 }
 
-
 /** read a packet from the Eaton ECI - framed by 0x5a ..[len byte, +packet data].. 0xa5 
  */
 static JSBool js_sock_read_eaton_packet(JSContext * cx, JSObject * obj, uintN argc, jsval * argv, jsval * rval)
@@ -855,6 +896,7 @@ static JSFunctionSpec js_sock_methods[] = {
 	{"poll", js_sock_poll, 1},
 	{"bind", js_sock_bind, 1},
 	{"accept", js_sock_accept, 1},
+	{"setTimeouts", js_sock_set_timeout, 1},
 	{0}
 };
 

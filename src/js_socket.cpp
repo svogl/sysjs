@@ -69,7 +69,7 @@ static JSBool js_sock_construct(JSContext * cx, JSObject * obj, uintN argc, jsva
 	js_sock_obj = (sock_obj_t*)JS_malloc( cx, sizeof(sock_obj_t));
 
 	js_sock_obj->read_buffer = (char*)JS_malloc(cx, 32*1024); // TODO: There is a realloc-related bug in sock_read when enlargin buffers - find and fix it!
-	js_sock_obj->buffer_size = 1*1024;
+	js_sock_obj->buffer_size = 32*1024;
 	js_sock_obj->buffer_pos = 0;
 	js_sock_obj->sock = -1;
 	js_sock_obj->state = disconnected;
@@ -243,7 +243,7 @@ static JSBool js_sock_setbaud(JSContext * cx, JSObject * obj, uintN argc, jsval 
     */
 
 	newtio.c_cflag = baud | CS8 | CLOCAL | CREAD;
-    cfsetspeed(&newtio, BAUDRATE);
+    cfsetspeed(&newtio, baud);
   //  cfmakeraw(&newtio);
             /*
      Raw input.
@@ -809,14 +809,15 @@ static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 		}
 	}
 
-	read_buffer = js_sock->read_buffer + js_sock->buffer_pos;
-	read_size = js_sock->buffer_size - js_sock->buffer_pos;
 	read_buffer[0] = '\0';
 
 	*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
 
 	js_sock->saveDepth = JS_SuspendRequest(cx);
 	while (can_run) {
+		read_buffer = js_sock->read_buffer + js_sock->buffer_pos;
+		read_size = js_sock->buffer_size - js_sock->buffer_pos;
+
 		ret = read(js_sock->sock, read_buffer, read_size);
 		if (ret==-1) {
 			JS_ReportError(cx, "read failed: %s", strerror(errno) );
@@ -839,8 +840,10 @@ static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 				js_sock->buffer_size = new_size;
 				js_sock->read_buffer = new_buffer;
 
+				js_sock->buffer_pos = read_size;
+				read_buffer = new_buffer + read_size;
 				read_size+=1024;
-				read_buffer = new_buffer + new_size - read_size;
+
 		}
 		++total_length;
 	}
@@ -852,8 +855,8 @@ static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 		if (read_buffer>js_sock->read_buffer && read_buffer[-1]=='\r' ) {
 			read_buffer[-1]='\0';
 		}
-		*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer + js_sock->buffer_pos ));
-
+		*rval = STRING_TO_JSVAL(JS_NewStringCopyZ(cx, js_sock->read_buffer ));
+		ret--; // munge 'n
 		if (ret>0) {
 			// some bytes have been left over...
 			memmove(js_sock->read_buffer, read_buffer+1, ret);

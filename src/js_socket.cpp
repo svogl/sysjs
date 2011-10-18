@@ -69,6 +69,7 @@ static JSBool js_sock_construct(JSContext * cx, JSObject * obj, uintN argc, jsva
 	js_sock_obj = (sock_obj_t*)JS_malloc( cx, sizeof(sock_obj_t));
 
 	js_sock_obj->read_buffer = (char*)JS_malloc(cx, 32*1024); // TODO: There is a realloc-related bug in sock_read when enlargin buffers - find and fix it!
+	
 	js_sock_obj->buffer_size = 32*1024;
 	js_sock_obj->buffer_pos = 0;
 	js_sock_obj->sock = -1;
@@ -808,8 +809,6 @@ static JSBool js_sock_read(JSContext * cx, JSObject * obj, uintN argc, jsval * a
 			return JS_TRUE;
 		}
 	}
-
-	read_buffer[0] = '\0';
 
 	*rval = BOOLEAN_TO_JSVAL(JS_FALSE);
 
